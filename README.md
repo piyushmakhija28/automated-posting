@@ -212,6 +212,7 @@ The repository includes a comprehensive, production-grade documentation suite:
 
 | Discipline | Specification Files | Description |
 |---|---|---|
+| **Trade-Offs & FAQ** | [Architecture Trade-Offs & FAQ](docs/07-architecture-tradeoffs-and-faq.md) | Technical alternatives matrix (Why X over Y), integration challenges, and evaluator deep-dive FAQ |
 | **Architecture** | [HLD](docs/02-hld.md) · [ADRs (8 Records)](docs/06-adr/) | High-Level Design, C4 diagrams, and 8 Architectural Decision Records |
 | **Contracts** | [PRD](docs/01-prd.md) · [SRS](SRS.md) · [OpenAPI 3.1.0](openapi.yaml) | Functional/NFR requirements, IEEE 830 specification, OpenAPI schema |
 | **Low-Level Design** | [Class Design](docs/lld/01-class-and-object-design.md) · [Concurrency Model](docs/lld/04-concurrency-threading-model.md) | Abstract base adapter, state machines, sequence diagrams, and async loop |
