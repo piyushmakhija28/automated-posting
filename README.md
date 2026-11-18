@@ -340,3 +340,4 @@ curl -f http://localhost:4000/health
 * **Destination Email:** `hr@chivoxai.com`
 * **GitHub Repository:** [piyushmakhija28/automated-posting](https://github.com/piyushmakhija28/automated-posting)
 * **LinkedIn Profile:** [linkedin.com/in/piyush-makhija-a43618117](https://www.linkedin.com/in/piyush-makhija-a43618117/)
+* **Portfolio & Other Projects:** [github.com/orgs/techdeveloper-org/repositories](https://github.com/orgs/techdeveloper-org/repositories)
