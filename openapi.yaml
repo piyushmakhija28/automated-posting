@@ -1,132 +1,679 @@
 openapi: 3.1.0
 info:
-  title: Automated Multi-Platform Posting System API
+  title: Automated Multi-Platform Posting Service API
   description: >
     Production-grade asynchronous microservice developed for the Dxora Technologies
-    Practical Test. Accepts a validated message (max 200 characters, exactly 1 CTA link)
-    and broadcasts it concurrently across LinkedIn, Dev.to, Hashnode, Mastodon, and Telegram.
+    Practical Test assessment. Accepts a validated marketing message (maximum 200 characters,
+    containing exactly one Call-to-Action URL) and broadcasts the content concurrently across
+    LinkedIn, Dev.to, Hashnode, Mastodon, and Telegram.
+    
+    Implements the Bulkhead Pattern for fault isolation, dual-tier SLA timeouts (8.0s adapter SLA,
+    10.0s gateway SLA), in-memory credential masking, and strict RFC 7807 Problem Details error modeling.
   version: 1.0.0
   contact:
     name: Piyush Makhija
     url: https://github.com/piyushmakhija28/automated-posting
+    email: hr@chivoxai.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
 servers:
   - url: http://localhost:4000
-    description: Local Development Server
+    description: Local Development & Verification Server
   - url: https://automated-posting-dxora.onrender.com
-    description: Production Live Demo Server
+    description: Production Live Demo Server (Render.com PaaS)
+
+tags:
+  - name: Posting
+    description: Multi-platform concurrent broadcast operations and result aggregation
+  - name: Health & Probes
+    description: Kubernetes/Docker container lifecycle, liveness, and readiness probes
 
 paths:
   /posting:
     post:
-      summary: Broadcast message across 5+ platforms concurrently
-      operationId: broadcastMessage
+      summary: Broadcast message across 5 platforms concurrently
+      description: >
+        Accepts a promotional message (max 200 unicode characters, exactly 1 CTA link),
+        validates input invariants, and executes concurrent asynchronous publishing to
+        LinkedIn, Dev.to, Hashnode, Mastodon, and Telegram via non-blocking `httpx.AsyncClient`.
+        
+        The endpoint guarantees bulkhead fault isolation: upstream platform failures, timeouts,
+        or rate limits do not block or fail the entire request, returning itemized telemetry per platform.
+      operationId: broadcastPosting
       tags:
         - Posting
+      parameters:
+        - name: X-Request-ID
+          in: header
+          required: false
+          description: Client-supplied correlation UUID for distributed trace propagation
+          schema:
+            type: string
+            format: uuid
+            example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
       requestBody:
         required: true
+        description: Inbound posting payload containing the message copy and embedded CTA URL.
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostRequest'
-            example:
-              message: "Discover modern cloud architectures and automated posting pipelines! https://techdeveloper.io"
+              $ref: '#/components/schemas/PostingRequest'
+            examples:
+              happy_path_standard:
+                summary: TC-POS-01 Standard valid message (120 chars)
+                value:
+                  message: "Discover modern cloud architectures and automated posting pipelines with our service! https://techdeveloper.io"
+              boundary_200_chars:
+                summary: TC-POS-02 Exact 200-character boundary payload
+                value:
+                  message: "Scale your engineering velocity today with resilient async event-driven microservices designed for high-throughput enterprise distribution pipelines! Check out our deep-dive at https://techdeveloper.io"
+              minimal_valid_message:
+                summary: TC-POS-03 Minimal message with shortlink
+                value:
+                  message: "Check https://a.co"
+              url_with_query_params:
+                summary: TC-POS-04 Message with complex query parameters
+                value:
+                  message: "Explore our winter 2026 launch benchmarks! https://techdeveloper.io/benchmarks?source=dxora&campaign=q4&ref=api"
+              url_in_parentheses:
+                summary: TC-EDG-01 URL enclosed within parentheses
+                value:
+                  message: "Read our full systems architecture specification (https://techdeveloper.io/spec) for technical deep-dives!"
+              url_with_trailing_period:
+                summary: TC-EDG-02 URL ending with punctuation
+                value:
+                  message: "Discover how we built automated broadcasting at scale: https://techdeveloper.io/architecture."
+              unicode_and_emojis:
+                summary: TC-EDG-03 Unicode characters and multi-byte emojis
+                value:
+                  message: "🚀 Supercharge your multi-platform distribution! 🌟 High throughput & zero downtime: https://techdeveloper.io 🔥"
       responses:
         '200':
-          description: Posting telemetry and individual platform execution results
+          description: >
+            Multi-platform execution outcome. Returned when the request is syntactically valid and
+            dispatched across platforms, even if one or more individual platforms encounter upstream errors.
+          headers:
+            X-Request-ID:
+              description: Unique correlation identifier assigned to this request
+              schema:
+                type: string
+                format: uuid
+                example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+            X-Process-Time:
+              description: Wall-clock execution time in seconds
+              schema:
+                type: number
+                format: float
+                example: 1.428
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PostResponse'
-              example:
-                success: true
-                total_platforms: 5
-                successful_posts: 4
-                failed_posts: 1
-                results:
-                  - platform: "LinkedIn"
-                    status: "success"
-                    posted_url: "https://www.linkedin.com/feed/update/urn:li:share:7123456789"
-                    public_access: true
-                    date: "2026-11-18"
-                    time: "12:30:15"
-                    error: null
-                  - platform: "Dev.to"
-                    status: "success"
-                    posted_url: "https://dev.to/piyush/discover-modern-cloud-architectures-abc"
-                    public_access: true
-                    date: "2026-11-18"
-                    time: "12:30:16"
-                    error: null
-                  - platform: "Hashnode"
-                    status: "success"
-                    posted_url: "https://hashnode.com/post/xyz789"
-                    public_access: true
-                    date: "2026-11-18"
-                    time: "12:30:16"
-                    error: null
-                  - platform: "Mastodon"
-                    status: "success"
-                    posted_url: "https://mastodon.social/@piyush/1123456789"
-                    public_access: true
-                    date: "2026-11-18"
-                    time: "12:30:17"
-                    error: null
-                  - platform: "Telegram"
-                    status: "failed"
-                    posted_url: null
-                    public_access: false
-                    date: null
-                    time: null
-                    error: "Telegram Bot API error: Chat not found or bot not admin"
+                $ref: '#/components/schemas/PostingResponse'
+              examples:
+                all_platforms_success:
+                  summary: 100% Happy Path (All 5 platforms succeeded)
+                  value:
+                    success: true
+                    total_platforms: 5
+                    successful_posts: 5
+                    failed_posts: 0
+                    execution_time_seconds: 1.42
+                    results:
+                      - platform: "LinkedIn"
+                        status: "success"
+                        posted_url: "https://www.linkedin.com/feed/update/urn:li:share:7123456789"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:15"
+                        latency_ms: 1410
+                        error: null
+                      - platform: "Dev.to"
+                        status: "success"
+                        posted_url: "https://dev.to/piyush/discover-modern-cloud-architectures-abc123"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:16"
+                        latency_ms: 812
+                        error: null
+                      - platform: "Hashnode"
+                        status: "success"
+                        posted_url: "https://piyush.hashnode.dev/discover-modern-cloud-architectures"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:16"
+                        latency_ms: 1105
+                        error: null
+                      - platform: "Mastodon"
+                        status: "success"
+                        posted_url: "https://mastodon.social/@piyush/11234567890"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:17"
+                        latency_ms: 645
+                        error: null
+                      - platform: "Telegram"
+                        status: "success"
+                        posted_url: "https://t.me/techdeveloper_channel/42"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:15"
+                        latency_ms: 350
+                        error: null
+                partial_degradation_telegram_failed:
+                  summary: Partial Degradation (Telegram Bot not Admin)
+                  value:
+                    success: true
+                    total_platforms: 5
+                    successful_posts: 4
+                    failed_posts: 1
+                    execution_time_seconds: 1.43
+                    results:
+                      - platform: "LinkedIn"
+                        status: "success"
+                        posted_url: "https://www.linkedin.com/feed/update/urn:li:share:7123456789"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:15"
+                        latency_ms: 1410
+                        error: null
+                      - platform: "Dev.to"
+                        status: "success"
+                        posted_url: "https://dev.to/piyush/discover-modern-cloud-architectures-abc123"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:16"
+                        latency_ms: 812
+                        error: null
+                      - platform: "Hashnode"
+                        status: "success"
+                        posted_url: "https://piyush.hashnode.dev/discover-modern-cloud-architectures"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:16"
+                        latency_ms: 1105
+                        error: null
+                      - platform: "Mastodon"
+                        status: "success"
+                        posted_url: "https://mastodon.social/@piyush/11234567890"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:17"
+                        latency_ms: 645
+                        error: null
+                      - platform: "Telegram"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 340
+                        error: "Telegram Bot API error: Chat not found or Bot is not channel administrator (HTTP 400)"
+                partial_degradation_linkedin_token_expired:
+                  summary: Partial Degradation (LinkedIn 401 Token Expired)
+                  value:
+                    success: true
+                    total_platforms: 5
+                    successful_posts: 4
+                    failed_posts: 1
+                    execution_time_seconds: 1.15
+                    results:
+                      - platform: "LinkedIn"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 320
+                        error: "LinkedIn API error: Access token expired or invalid (HTTP 401 Unauthorized)"
+                      - platform: "Dev.to"
+                        status: "success"
+                        posted_url: "https://dev.to/piyush/discover-modern-cloud-architectures-abc123"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:16"
+                        latency_ms: 812
+                        error: null
+                      - platform: "Hashnode"
+                        status: "success"
+                        posted_url: "https://piyush.hashnode.dev/discover-modern-cloud-architectures"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:16"
+                        latency_ms: 1105
+                        error: null
+                      - platform: "Mastodon"
+                        status: "success"
+                        posted_url: "https://mastodon.social/@piyush/11234567890"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:17"
+                        latency_ms: 645
+                        error: null
+                      - platform: "Telegram"
+                        status: "success"
+                        posted_url: "https://t.me/techdeveloper_channel/43"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:15"
+                        latency_ms: 350
+                        error: null
+                partial_degradation_adapter_timeout:
+                  summary: Partial Degradation (Adapter 8.0s Timeout SLA Triggered)
+                  value:
+                    success: true
+                    total_platforms: 5
+                    successful_posts: 4
+                    failed_posts: 1
+                    execution_time_seconds: 8.05
+                    results:
+                      - platform: "LinkedIn"
+                        status: "success"
+                        posted_url: "https://www.linkedin.com/feed/update/urn:li:share:7123456789"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:15"
+                        latency_ms: 1410
+                        error: null
+                      - platform: "Dev.to"
+                        status: "success"
+                        posted_url: "https://dev.to/piyush/discover-modern-cloud-architectures-abc123"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:16"
+                        latency_ms: 812
+                        error: null
+                      - platform: "Hashnode"
+                        status: "success"
+                        posted_url: "https://piyush.hashnode.dev/discover-modern-cloud-architectures"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:16"
+                        latency_ms: 1105
+                        error: null
+                      - platform: "Mastodon"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 8002
+                        error: "Platform SLA timeout: Mastodon instance failed to respond within 8.0s"
+                      - platform: "Telegram"
+                        status: "success"
+                        posted_url: "https://t.me/techdeveloper_channel/44"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:15"
+                        latency_ms: 350
+                        error: null
+                partial_degradation_rate_limited:
+                  summary: Partial Degradation (Dev.to 429 Rate Limit with Retry-After)
+                  value:
+                    success: true
+                    total_platforms: 5
+                    successful_posts: 4
+                    failed_posts: 1
+                    execution_time_seconds: 1.45
+                    results:
+                      - platform: "LinkedIn"
+                        status: "success"
+                        posted_url: "https://www.linkedin.com/feed/update/urn:li:share:7123456789"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:15"
+                        latency_ms: 1410
+                        error: null
+                      - platform: "Dev.to"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 220
+                        error: "Dev.to API error: Rate limit exceeded (HTTP 429). Retry after 45 seconds."
+                      - platform: "Hashnode"
+                        status: "success"
+                        posted_url: "https://piyush.hashnode.dev/discover-modern-cloud-architectures"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:16"
+                        latency_ms: 1105
+                        error: null
+                      - platform: "Mastodon"
+                        status: "success"
+                        posted_url: "https://mastodon.social/@piyush/11234567890"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:17"
+                        latency_ms: 645
+                        error: null
+                      - platform: "Telegram"
+                        status: "success"
+                        posted_url: "https://t.me/techdeveloper_channel/45"
+                        public_access: true
+                        date: "2026-11-18"
+                        time: "12:30:15"
+                        latency_ms: 350
+                        error: null
+                all_platforms_failed:
+                  summary: Complete Upstream Degradation (All 5 failed)
+                  value:
+                    success: false
+                    total_platforms: 5
+                    successful_posts: 0
+                    failed_posts: 5
+                    execution_time_seconds: 1.25
+                    results:
+                      - platform: "LinkedIn"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 290
+                        error: "LinkedIn API error: Access token expired (HTTP 401)"
+                      - platform: "Dev.to"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 310
+                        error: "Dev.to API error: Invalid API key (HTTP 401)"
+                      - platform: "Hashnode"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 340
+                        error: "Hashnode API error: Unauthorized (HTTP 401)"
+                      - platform: "Mastodon"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 305
+                        error: "Mastodon API error: The access token is invalid (HTTP 401)"
+                      - platform: "Telegram"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 280
+                        error: "Telegram Bot API error: Unauthorized (HTTP 401)"
+                unconfigured_credentials:
+                  summary: Clean Handling When Credentials Are Not Set
+                  value:
+                    success: false
+                    total_platforms: 5
+                    successful_posts: 0
+                    failed_posts: 5
+                    execution_time_seconds: 0.05
+                    results:
+                      - platform: "LinkedIn"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 1
+                        error: "LinkedIn credentials not configured in environment variables."
+                      - platform: "Dev.to"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 1
+                        error: "Dev.to credentials not configured in environment variables."
+                      - platform: "Hashnode"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 1
+                        error: "Hashnode credentials not configured in environment variables."
+                      - platform: "Mastodon"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 1
+                        error: "Mastodon credentials not configured in environment variables."
+                      - platform: "Telegram"
+                        status: "failed"
+                        posted_url: null
+                        public_access: false
+                        date: null
+                        time: null
+                        latency_ms: 1
+                        error: "Telegram credentials not configured in environment variables."
+        '400':
+          description: Bad Request — Malformed JSON syntax or unsupported Content-Type
+          headers:
+            X-Request-ID:
+              description: Correlation identifier
+              schema:
+                type: string
+                format: uuid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                malformed_json_syntax:
+                  summary: Syntactically invalid JSON payload
+                  value:
+                    type: "https://dxora.com/errors/malformed-json"
+                    title: "Malformed JSON Request Body"
+                    status: 400
+                    detail: "The request body could not be parsed as valid JSON. Check for unmatched braces or trailing commas."
+                    instance: "/posting"
+                    code: "ERR_MALFORMED_JSON"
+                    invalid_params: []
         '422':
-          description: Input validation error (character length >200, missing CTA URL, or multiple URLs)
-          content:
-            application/json:
+          description: Unprocessable Content — Input validation invariant violations
+          headers:
+            X-Request-ID:
+              description: Correlation identifier
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                type: string
+                format: uuid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                character_budget_exceeded:
+                  summary: TC-NEG-01 Message exceeds 200 character budget (201 chars)
+                  value:
+                    type: "https://dxora.com/errors/character-budget-exceeded"
+                    title: "Character Budget Exceeded"
+                    status: 422
+                    detail: "Message length of 201 characters exceeds the maximum allowed budget of 200 characters."
+                    instance: "/posting"
+                    code: "ERR_CHAR_LIMIT_EXCEEDED"
+                    invalid_params:
+                      - name: "message"
+                        reason: "Character count 201 > 200"
+                missing_cta_url:
+                  summary: TC-NEG-02 Zero CTA URLs detected in message
+                  value:
+                    type: "https://dxora.com/errors/missing-cta-url"
+                    title: "Missing Call-to-Action URL"
+                    status: 422
+                    detail: "Message must contain exactly one valid HTTP/HTTPS Call-to-Action link. 0 URLs detected."
+                    instance: "/posting"
+                    code: "ERR_MISSING_CTA_URL"
+                    invalid_params:
+                      - name: "message"
+                        reason: "Expected exactly 1 URL, found 0"
+                multiple_cta_urls:
+                  summary: TC-NEG-03 Two or more CTA URLs detected in message
+                  value:
+                    type: "https://dxora.com/errors/multiple-cta-urls"
+                    title: "Multiple Call-to-Action URLs Detected"
+                    status: 422
+                    detail: "Message contains 2 URLs. Exactly one Call-to-Action URL is permitted per posting request."
+                    instance: "/posting"
+                    code: "ERR_MULTIPLE_CTA_URLS"
+                    invalid_params:
+                      - name: "message"
+                        reason: "Found 2 URLs: ['https://site-a.com', 'https://site-b.com']"
+                bare_domain_no_scheme:
+                  summary: TC-NEG-06 Domain without http:// or https:// scheme
+                  value:
+                    type: "https://dxora.com/errors/invalid-url-scheme"
+                    title: "Missing Protocol Scheme"
+                    status: 422
+                    detail: "Extracted URL 'techdeveloper.io' lacks an explicit scheme. Must begin with http:// or https://."
+                    instance: "/posting"
+                    code: "ERR_INVALID_URL_SCHEME"
+                    invalid_params:
+                      - name: "message"
+                        reason: "Bare domain rejected; prepend https://"
+                empty_whitespace_string:
+                  summary: TC-NEG-04 Empty or whitespace-only message
+                  value:
+                    type: "https://dxora.com/errors/empty-message"
+                    title: "Empty Message Body"
+                    status: 422
+                    detail: "Message cannot be empty or contain only whitespace characters."
+                    instance: "/posting"
+                    code: "ERR_EMPTY_MESSAGE"
+                    invalid_params:
+                      - name: "message"
+                        reason: "String length after strip must be >= 1"
+                missing_required_field:
+                  summary: TC-NEG-08 Missing required 'message' attribute
+                  value:
+                    type: "https://dxora.com/errors/missing-field"
+                    title: "Missing Required Payload Field"
+                    status: 422
+                    detail: "Field 'message' is required in request body."
+                    instance: "/posting"
+                    code: "ERR_MISSING_FIELD"
+                    invalid_params:
+                      - name: "message"
+                        reason: "Field required"
+        '429':
+          description: Too Many Requests — Service ingress rate limit triggered
+          headers:
+            Retry-After:
+              description: Recommended wait interval in seconds
+              schema:
+                type: integer
+                example: 60
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: "https://dxora.com/errors/rate-limit-exceeded"
+                title: "Rate Limit Exceeded"
+                status: 429
+                detail: "Too many posting requests originating from this client IP. Maximum 60 requests per minute."
+                instance: "/posting"
+                code: "ERR_RATE_LIMITED"
+                invalid_params: []
+        '500':
+          description: Internal Server Error — Uncaught exception with correlation ID
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: "https://dxora.com/errors/internal-server-error"
+                title: "Internal Server Error"
+                status: 500
+                detail: "An unexpected runtime exception occurred. Reference X-Request-ID in log investigations."
+                instance: "/posting"
+                code: "ERR_INTERNAL_SERVER"
+                invalid_params: []
+        '504':
+          description: Gateway Timeout — Aggregate fan-out exceeded global 10.0s SLA
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: "https://dxora.com/errors/gateway-timeout"
+                title: "Gateway Execution Timeout"
+                status: 504
+                detail: "The aggregate multi-platform posting operation exceeded the 10.0-second gateway budget."
+                instance: "/posting"
+                code: "ERR_GATEWAY_TIMEOUT"
+                invalid_params: []
 
   /health:
     get:
       summary: Liveness Probe
-      operationId: getHealth
+      description: Returns HTTP 200 if the FastAPI application process and Uvicorn event loop are responsive.
+      operationId: checkLiveness
       tags:
-        - Health
+        - Health & Probes
       responses:
         '200':
-          description: Server process is alive
+          description: Process is alive and accepting connections
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: "ok"
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "ok"
+                timestamp: "2026-11-18T12:30:15.123456Z"
+                version: "1.0.0"
 
   /ready:
     get:
       summary: Readiness Probe
-      operationId: getReady
+      description: Returns HTTP 200 with adapter configuration status and connection pool readiness.
+      operationId: checkReadiness
       tags:
-        - Health
+        - Health & Probes
       responses:
         '200':
-          description: Service configuration and adapters ready
+          description: Application is fully initialized with platform credentials configured
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: "ready"
-                  platforms_configured:
-                    type: integer
-                    example: 5
+                $ref: '#/components/schemas/ReadinessResponse'
+              example:
+                status: "ready"
+                timestamp: "2026-11-18T12:30:15.123456Z"
+                version: "1.0.0"
+                platforms_configured: 5
+                adapters:
+                  linkedin: true
+                  devto: true
+                  hashnode: true
+                  mastodon: true
+                  telegram: true
 
 components:
   schemas:
-    PostRequest:
+    PostingRequest:
       type: object
       required:
         - message
@@ -135,8 +682,10 @@ components:
           type: string
           minLength: 1
           maxLength: 200
-          description: The message copy containing exactly one CTA URL (http:// or https://).
-          example: "Check out our latest platform release and scale your workflows! https://example.com"
+          description: >
+            The marketing copy to broadcast. Must be between 1 and 200 unicode characters in length
+            and contain exactly one valid HTTP or HTTPS Call-to-Action URL.
+          example: "Discover modern cloud architectures and automated posting pipelines! https://techdeveloper.io"
 
     PlatformResult:
       type: object
@@ -144,42 +693,61 @@ components:
         - platform
         - status
         - public_access
+        - error
       properties:
         platform:
           type: string
-          description: Name of the third-party platform.
+          enum:
+            - LinkedIn
+            - Dev.to
+            - Hashnode
+            - Mastodon
+            - Telegram
+          description: Canonical identifier of the target social or developer platform.
           example: "LinkedIn"
         status:
           type: string
-          enum: [success, failed]
-          description: Execution outcome for this platform.
+          enum:
+            - success
+            - failed
+          description: Outcome of the posting execution for this specific platform.
           example: "success"
         posted_url:
           type: string
+          format: uri
           nullable: true
-          description: Published URL if successful.
-          example: "https://linkedin.com/feed/update/urn:li:share:123"
+          description: Publicly accessible URL of the published post, toot, or message if status is success.
+          example: "https://www.linkedin.com/feed/update/urn:li:share:7123456789"
         public_access:
           type: boolean
-          description: Indicates whether the post is publicly accessible without login.
+          description: Indicates whether the content is accessible on the open web without authentication.
           example: true
         date:
           type: string
+          format: date
+          pattern: '^\d{4}-\d{2}-\d{2}$'
           nullable: true
-          description: Posting date in YYYY-MM-DD format.
+          description: Execution date in ISO-8601 YYYY-MM-DD format (UTC).
           example: "2026-11-18"
         time:
           type: string
+          format: time
+          pattern: '^\d{2}:\d{2}:\d{2}$'
           nullable: true
-          description: Posting time in HH:MM:SS format.
+          description: Execution time in ISO-8601 HH:MM:SS format (UTC).
           example: "12:30:15"
+        latency_ms:
+          type: integer
+          nullable: true
+          description: Upstream platform HTTP round-trip latency in milliseconds.
+          example: 1410
         error:
           type: string
           nullable: true
-          description: Error details if posting failed.
+          description: Detailed diagnostic message if posting failed; null if successful.
           example: null
 
-    PostResponse:
+    PostingResponse:
       type: object
       required:
         - success
@@ -190,47 +758,157 @@ components:
       properties:
         success:
           type: boolean
-          description: Overall status flag.
+          description: >
+            Top-level execution flag. Returns true if at least one platform successfully published;
+            false only if all platforms failed or were unconfigured.
           example: true
         total_platforms:
           type: integer
-          description: Total number of platforms targeted.
+          default: 5
+          description: Total count of target platforms evaluated.
           example: 5
         successful_posts:
           type: integer
-          description: Number of platforms where posting succeeded.
+          minimum: 0
+          maximum: 5
+          description: Count of platforms where publishing succeeded.
           example: 4
         failed_posts:
           type: integer
-          description: Number of platforms where posting failed.
+          minimum: 0
+          maximum: 5
+          description: Count of platforms where publishing failed or timed out.
           example: 1
+        execution_time_seconds:
+          type: number
+          format: float
+          description: Total wall-clock time elapsed across concurrent fan-out and response normalization.
+          example: 1.428
         results:
           type: array
+          description: Individual execution outcomes across all 5 platform adapters.
           items:
             $ref: '#/components/schemas/PlatformResult'
 
-    HTTPValidationError:
-      type: object
-      properties:
-        detail:
-          type: array
-          items:
-            $ref: '#/components/schemas/ValidationError'
-
-    ValidationError:
+    ProblemDetails:
       type: object
       required:
-        - loc
-        - msg
         - type
+        - title
+        - status
+        - detail
       properties:
-        loc:
-          type: array
-          items:
-            anyOf:
-              - type: string
-              - type: integer
-        msg:
-          type: string
         type:
           type: string
+          format: uri
+          description: URI reference identifying the specific error category as per RFC 7807.
+          example: "https://dxora.com/errors/character-budget-exceeded"
+        title:
+          type: string
+          description: Short, human-readable summary of the problem type.
+          example: "Character Budget Exceeded"
+        status:
+          type: integer
+          description: The HTTP status code generated by the origin server.
+          example: 422
+        detail:
+          type: string
+          description: Human-readable explanation specific to this occurrence of the problem.
+          example: "Message length of 201 characters exceeds the maximum allowed budget of 200 characters."
+        instance:
+          type: string
+          format: uri-reference
+          description: URI reference identifying the specific endpoint invocation.
+          example: "/posting"
+        code:
+          type: string
+          enum:
+            - ERR_CHAR_LIMIT_EXCEEDED
+            - ERR_MISSING_CTA_URL
+            - ERR_MULTIPLE_CTA_URLS
+            - ERR_INVALID_URL_SCHEME
+            - ERR_EMPTY_MESSAGE
+            - ERR_MISSING_FIELD
+            - ERR_MALFORMED_JSON
+            - ERR_RATE_LIMITED
+            - ERR_GATEWAY_TIMEOUT
+            - ERR_INTERNAL_SERVER
+          description: Machine-parsable domain error code.
+          example: "ERR_CHAR_LIMIT_EXCEEDED"
+        invalid_params:
+          type: array
+          description: Field-level breakdown of parameters that failed validation rules.
+          items:
+            $ref: '#/components/schemas/InvalidParam'
+
+    InvalidParam:
+      type: object
+      required:
+        - name
+        - reason
+      properties:
+        name:
+          type: string
+          description: Name of the invalid field or parameter.
+          example: "message"
+        reason:
+          type: string
+          description: Specific violation rule.
+          example: "Character count 201 exceeds limit of 200"
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          example: "ok"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-11-18T12:30:15.123456Z"
+        version:
+          type: string
+          example: "1.0.0"
+
+    ReadinessResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - platforms_configured
+        - adapters
+      properties:
+        status:
+          type: string
+          example: "ready"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-11-18T12:30:15.123456Z"
+        version:
+          type: string
+          example: "1.0.0"
+        platforms_configured:
+          type: integer
+          example: 5
+        adapters:
+          type: object
+          properties:
+            linkedin:
+              type: boolean
+              example: true
+            devto:
+              type: boolean
+              example: true
+            hashnode:
+              type: boolean
+              example: true
+            mastodon:
+              type: boolean
+              example: true
+            telegram:
+              type: boolean
+              example: true
