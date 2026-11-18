@@ -1,0 +1,236 @@
+openapi: 3.1.0
+info:
+  title: Automated Multi-Platform Posting System API
+  description: >
+    Production-grade asynchronous microservice developed for the Dxora Technologies
+    Practical Test. Accepts a validated message (max 200 characters, exactly 1 CTA link)
+    and broadcasts it concurrently across LinkedIn, Dev.to, Hashnode, Mastodon, and Telegram.
+  version: 1.0.0
+  contact:
+    name: Piyush Makhija
+    url: https://github.com/piyushmakhija28/automated-posting
+servers:
+  - url: http://localhost:4000
+    description: Local Development Server
+  - url: https://automated-posting-dxora.onrender.com
+    description: Production Live Demo Server
+
+paths:
+  /posting:
+    post:
+      summary: Broadcast message across 5+ platforms concurrently
+      operationId: broadcastMessage
+      tags:
+        - Posting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostRequest'
+            example:
+              message: "Discover modern cloud architectures and automated posting pipelines! https://techdeveloper.io"
+      responses:
+        '200':
+          description: Posting telemetry and individual platform execution results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostResponse'
+              example:
+                success: true
+                total_platforms: 5
+                successful_posts: 4
+                failed_posts: 1
+                results:
+                  - platform: "LinkedIn"
+                    status: "success"
+                    posted_url: "https://www.linkedin.com/feed/update/urn:li:share:7123456789"
+                    public_access: true
+                    date: "2026-11-18"
+                    time: "12:30:15"
+                    error: null
+                  - platform: "Dev.to"
+                    status: "success"
+                    posted_url: "https://dev.to/piyush/discover-modern-cloud-architectures-abc"
+                    public_access: true
+                    date: "2026-11-18"
+                    time: "12:30:16"
+                    error: null
+                  - platform: "Hashnode"
+                    status: "success"
+                    posted_url: "https://hashnode.com/post/xyz789"
+                    public_access: true
+                    date: "2026-11-18"
+                    time: "12:30:16"
+                    error: null
+                  - platform: "Mastodon"
+                    status: "success"
+                    posted_url: "https://mastodon.social/@piyush/1123456789"
+                    public_access: true
+                    date: "2026-11-18"
+                    time: "12:30:17"
+                    error: null
+                  - platform: "Telegram"
+                    status: "failed"
+                    posted_url: null
+                    public_access: false
+                    date: null
+                    time: null
+                    error: "Telegram Bot API error: Chat not found or bot not admin"
+        '422':
+          description: Input validation error (character length >200, missing CTA URL, or multiple URLs)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+
+  /health:
+    get:
+      summary: Liveness Probe
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Server process is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /ready:
+    get:
+      summary: Readiness Probe
+      operationId: getReady
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service configuration and adapters ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ready"
+                  platforms_configured:
+                    type: integer
+                    example: 5
+
+components:
+  schemas:
+    PostRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: The message copy containing exactly one CTA URL (http:// or https://).
+          example: "Check out our latest platform release and scale your workflows! https://example.com"
+
+    PlatformResult:
+      type: object
+      required:
+        - platform
+        - status
+        - public_access
+      properties:
+        platform:
+          type: string
+          description: Name of the third-party platform.
+          example: "LinkedIn"
+        status:
+          type: string
+          enum: [success, failed]
+          description: Execution outcome for this platform.
+          example: "success"
+        posted_url:
+          type: string
+          nullable: true
+          description: Published URL if successful.
+          example: "https://linkedin.com/feed/update/urn:li:share:123"
+        public_access:
+          type: boolean
+          description: Indicates whether the post is publicly accessible without login.
+          example: true
+        date:
+          type: string
+          nullable: true
+          description: Posting date in YYYY-MM-DD format.
+          example: "2026-11-18"
+        time:
+          type: string
+          nullable: true
+          description: Posting time in HH:MM:SS format.
+          example: "12:30:15"
+        error:
+          type: string
+          nullable: true
+          description: Error details if posting failed.
+          example: null
+
+    PostResponse:
+      type: object
+      required:
+        - success
+        - total_platforms
+        - successful_posts
+        - failed_posts
+        - results
+      properties:
+        success:
+          type: boolean
+          description: Overall status flag.
+          example: true
+        total_platforms:
+          type: integer
+          description: Total number of platforms targeted.
+          example: 5
+        successful_posts:
+          type: integer
+          description: Number of platforms where posting succeeded.
+          example: 4
+        failed_posts:
+          type: integer
+          description: Number of platforms where posting failed.
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformResult'
+
+    HTTPValidationError:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+
+    ValidationError:
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      properties:
+        loc:
+          type: array
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+        msg:
+          type: string
+        type:
+          type: string
