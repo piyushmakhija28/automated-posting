@@ -1,152 +1,153 @@
-# 📢 Automated Multi-Platform Posting System
+# Automated Multi-Platform Posting Service
 
-> **Dxora Technologies – Python Practical Test Submission**  
-> **Candidate:** Piyush Makhija  
-> **Repository:** [piyushmakhija28/automated-posting](https://github.com/piyushmakhija28/automated-posting)  
-> **Deadline:** 22nd November 2026 | **Engineering Standard:** 10-Year Senior Staff / Principal Architect Level
+> Asynchronous microservice built with **FastAPI** and **HTTPX** to concurrently publish content across multiple developer and social platforms (**LinkedIn**, **Dev.to**, **Hashnode**, **Mastodon**, and **Telegram**) with strict input validation, isolated bulkhead fault tolerance, and zero-leakage security governance.
+
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Framework](https://img.shields.io/badge/Framework-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
+[![HTTP Client](https://img.shields.io/badge/Async_HTTP-HTTPX-orange.svg)](https://www.encode.io/httpx/)
+[![Testing](https://img.shields.io/badge/Coverage-%E2%89%A590%25-brightgreen.svg)](https://pytest.org/)
+[![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)](LICENSE)
 
 ---
 
-## 📌 1. Project Overview & Executive Summary
+## Table of Contents
 
-This project is an enterprise-grade **Automated Multi-Platform Posting Engine** built with **Python 3.11** and **FastAPI**. It exposes a single, asynchronous REST endpoint:
+- [Overview](#overview)
+- [System Architecture](#system-architecture)
+- [Key Engineering Decisions](#key-engineering-decisions)
+- [Supported Platforms](#supported-platforms)
+- [API Specification](#api-specification)
+  - [Ingress Endpoint](#ingress-endpoint)
+  - [Request Validation Rules](#request-validation-rules)
+  - [Example Request](#example-request)
+  - [Example Response (Partial Success Scenario)](#example-response-partial-success-scenario)
+- [Engineering Documentation](#engineering-documentation)
+- [Local Setup & Development](#local-setup--development)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+  - [Running the Server](#running-the-server)
+  - [Running the Test Suite](#running-the-test-suite)
+- [Docker Deployment](#docker-deployment)
+- [Submission Metadata](#submission-metadata)
+
+---
+
+## Overview
+
+The **Automated Multi-Platform Posting Service** exposes a single high-throughput REST endpoint:
 
 ```http
 POST http://localhost:4000/posting
 ```
 
-The system accepts a promotional message ($\le 200$ characters) with an embedded Call-to-Action (CTA) link, validates input integrity and protocol safety, and **concurrently publishes the message across 5 distinct third-party platforms** through their official APIs via non-blocking asynchronous I/O (`asyncio.gather`).
+The service accepts a short promotional message (maximum 200 characters) containing exactly one Call-to-Action (CTA) link, validates input integrity, and broadcasts the content concurrently across 5 target platforms via non-blocking asynchronous I/O.
 
-The architecture implements the **Bulkhead Pattern** (isolated failure boundaries) — if any single platform API fails, times out, or encounters rate limits, the remaining platforms continue publishing unimpeded, returning granular, structured telemetry per platform without leaking authentication credentials.
+### Core Guarantees:
+1. **Bulkhead Isolation:** A timeout, network partition, or authentication failure on one platform never blocks or degrades publishing to the remaining platforms.
+2. **Deterministic Response Time:** Concurrent execution via `asyncio.gather` reduces total response latency from the sum of platform response times ($\sum t_i \approx 4.3\text{s}$) to the latency of the slowest platform ($\max(t_i) \approx 1.4\text{s}$).
+3. **Zero-Leakage Logging:** API tokens, OAuth bearer tokens, and secrets are dynamically masked before any log records reach stdout or telemetry streams.
+4. **RFC 7807 Compliance:** Validation failures return structured Problem Details envelopes with explicit diagnostic context.
 
 ---
 
-## 🏛️ 2. Architectural Blueprint & 10-Level Documentation Suite
+## System Architecture
 
-To demonstrate principal engineering rigor, this repository includes an exhaustive, verified **10-Level SDLC Architecture Documentation Suite** (45+ formal specification files):
-
-```
-automated-posting/
-├── README.md                                  # Executive Overview, Setup, Demo & Architecture Guide
-├── SRS.md                                    # Formal IEEE 830 Specification (IEEE 830)
-├── openapi.yaml                              # OpenAPI 3.1.0 Formal Contract
-├── docs/
-│   ├── 00-problem-statement.md               # Level 0: Problem Statement, Invariants & Anti-Patterns
-│   ├── 01-prd.md                             # Level 0: 14-Section PRD (FR-001 to FR-016, NFR-001 to NFR-010)
-│   ├── 02-hld.md                             # Level 1: High Level Design (C4 Levels 1 to 4)
-│   ├── 03-api-contract.md                    # Level 1.5: REST Contract, Status Codes & RFC 7807 Error Envelope
-│   ├── 04-platform-research.md               # Level 1.6: Platform API Integration Specs & Auth Workflows
-│   ├── 05-srs.md                             # Level 0/1: System Requirements Specification & Traceability
-│   ├── 06-adr/                               # Level 1: Architecture Decision Records (8 Detailed ADRs)
-│   │   ├── ADR-001-framework-choice.md       # FastAPI vs Flask vs Django REST
-│   │   ├── ADR-002-async-http-client.md      # HTTPX AsyncClient vs Requests (ISSUE-004)
-│   │   ├── ADR-003-concurrency-fanout.md     # asyncio.gather vs ThreadPool vs Celery
-│   │   ├── ADR-004-resilience-and-timeouts.md# Bulkhead pattern & per-adapter timeout isolation (ISSUE-005)
-│   │   ├── ADR-005-platform-selection.md     # Platform selection rationale & feasibility matrix
-│   │   ├── ADR-006-zero-trust-secrets.md     # 12-Factor config injection & log sanitization (ISSUE-009)
-│   │   ├── ADR-007-validation-error-model.md # Pydantic v2 schemas & RFC 7807 error envelopes (ISSUE-007, 010)
-│   │   └── ADR-008-deployment-topology.md    # Multi-stage distroless container & keepalive (ISSUE-012)
-│   ├── lld/                                  # Level 2: Low-Level Design (LLD)
-│   │   ├── 01-class-and-object-design.md     # Class hierarchy, BasePlatform, Models, Type Hints
-│   │   ├── 02-dynamic-interaction-sequences.md # Sequence diagrams: Happy Path, Partial Failure, Ingress Fail
-│   │   ├── 03-state-machine-lifecycle.md     # Request Lifecycle & Platform Execution State Machines
-│   │   └── 04-concurrency-threading-model.md # Non-blocking async event loop & task safety (ISSUE-004, 013)
-│   ├── security/                             # Level 3: Security & Threat Modeling
-│   │   ├── 01-threat-model-stride.md         # STRIDE Threat Model across all trust boundaries
-│   │   ├── 02-owasp-api-top10-audit.md       # OWASP API Security Top 10 (2023) Compliance Matrix (PASS)
-│   │   └── 03-credential-logging-governance.md # Secret lifecycle, regex redaction & zero-leakage
-│   ├── resilience/                           # Level 4: Reliability & Fault Tolerance
-│   │   ├── 01-fault-tolerance-bulkhead.md    # Bulkhead isolation & graceful partial degradation
-│   │   ├── 02-timeout-and-retry-policy.md    # Dual-tier timeout (8s/10s), exponential backoff/jitter
-│   │   └── 03-error-catalogue-degradation.md # Exhaustive taxonomy of error codes & handling
-│   ├── observability/                        # Level 5: Observability & SRE Architecture
-│   │   ├── 01-structured-logging-telemetry.md# JSON logging schema with correlation IDs (X-Request-ID)
-│   │   ├── 02-health-probes-cold-start.md    # /health & /ready probes, Render keepalive strategy
-│   │   └── 03-production-readiness-review.md # SRE PRR Go/No-Go Audit Scorecard (70/70 GO)
-│   ├── testing/                              # Level 6: Testing Strategy & Test Suites
-│   │   ├── 01-test-strategy-and-pyramid.md   # Pyramid: Unit, MockTransport Integration, Contract
-│   │   ├── 02-test-cases-catalog.md          # 3-Tier Catalog: Positive (35), Negative (36), Edge (37)
-│   │   └── 03-performance-load-testing.md    # Concurrency latency benchmarks & k6 test specs
-│   ├── devops/                               # Level 7: DevOps & Container Architecture
-│   │   ├── 01-docker-and-container-spec.md   # Multi-stage distroless/slim Dockerfile spec (OCI/CIS Standards)
-│   │   ├── 02-ci-cd-pipeline-spec.md         # GitHub Actions lint, typecheck, security, coverage
-│   │   └── 03-hosting-and-environment-spec.md# Render.com PaaS configuration & env secrets
-│   └── management/                           # Level 9: Agile Governance & Traceability
-│       ├── 01-wbs-and-sprint-backlog.md      # INVEST-compliant user stories & WSJF ranking
-│       ├── 02-service-orchestration-dag.md      # Service execution graph & pipeline stages
-│       └── 03-traceability-matrix.md         # Full bidirectional requirement-to-test traceability
-└── uml/                                      # Level 8: UML Diagram Suite (Complete 13-Diagram Suite)
-    ├── class_diagram.md
-    ├── package_diagram.md
-    ├── component_diagram.md
-    ├── sequence_diagram.md
-    ├── state_diagram.md
-    ├── activity_diagram.md
-    ├── deployment_diagram.md
-    ├── usecase_diagram.md
-    ├── object_diagram.md
-    ├── composite_diagram.md
-    ├── interaction_diagram.md
-    ├── communication_diagram.md
-    └── call_graph_diagram.md
+```mermaid
+flowchart TD
+    Client([Client / Inbound Caller]) -->|POST /posting| Ingress[FastAPI Ingress Router]
+    
+    subgraph Validation [Input Validation Tier]
+        Ingress --> PydanticVal[Pydantic v2 Validator]
+        PydanticVal --> CheckLength[Length Check: <= 200 Chars]
+        CheckLength --> CheckURL[URL Extractor: Exactly 1 HTTP/S CTA]
+    end
+    
+    subgraph Bulkhead [Bulkhead & Concurrency Layer]
+        CheckURL --> FanOut[asyncio.gather Task Fan-Out]
+    end
+    
+    subgraph Adapters [Platform Adapters - 8s Timeout Each]
+        FanOut --> LI[LinkedIn UGC Adapter]
+        FanOut --> DV[Dev.to Forem Adapter]
+        FanOut --> HN[Hashnode GraphQL Adapter]
+        FanOut --> MS[Mastodon REST Adapter]
+        FanOut --> TG[Telegram Bot Adapter]
+    end
+    
+    subgraph Aggregation [Result Aggregation Tier]
+        LI --> Aggregator[Async Normalizer & Collector]
+        DV --> Aggregator
+        HN --> Aggregator
+        MS --> Aggregator
+        TG --> Aggregator
+    end
+    
+    Aggregator --> ResponseFormatter[Response Normalizer & Masked Audit Logger]
+    ResponseFormatter --> ClientResp([HTTP 200 OK Response])
 ```
 
 ---
 
-## ⚠️ 3. Architecture Feasibility Challenges & Mitigations (13 Critical Traps Solved)
+## Key Engineering Decisions
 
-Before code was authored, a dedicated **Technical Feasibility Review Board** identified and eliminated 13 failure vectors:
-
-1. **ISSUE-001 (LinkedIn OAuth 2.0 Complexity):** 3-legged consent flow handled via pre-generated long-lived tokens with 401 token-expiry diagnostics.
-2. **ISSUE-002 (Dev.to Article vs Status Mismatch):** Automatic title synthesis from first 60 chars + full markdown body wrapping.
-3. **ISSUE-003 (Hashnode GraphQL vs REST Trap):** Native GraphQL mutation (`publishPost`) with publication binding.
-4. **ISSUE-004 (Event Loop Blocking):** Strict prohibition of `requests`; $100\%$ non-blocking `httpx.AsyncClient` across all adapters.
-5. **ISSUE-005 (Timeout Cascading Failure):** Per-adapter 8.0s timeout wrapped in `asyncio.wait_for`, preserving the 10.0s global SLA.
-6. **ISSUE-006 (Telegram Bot Admin Prerequisite):** Validation of `@channel_username` and bot channel administrator permissions.
-7. **ISSUE-007 (URL Extraction & Boundary Glitches):** Multi-pass regex + trailing punctuation stripping (`.,;:!?)'`).
-8. **ISSUE-008 (Platform Rate Limits - HTTP 429):** Automatic `Retry-After` header parsing with non-blocking error classification.
-9. **ISSUE-009 (Secret Leakage in Logs):** Automated `SensitiveDataFilter` redacting `Bearer ***REDACTED***` tokens.
-10. **ISSUE-010 (Pydantic v2 Migration):** Modern `pydantic>=2.7.0` syntax (`model_dump()`, `@field_validator`, `ConfigDict`).
-11. **ISSUE-011 (Mastodon Federated Instances):** Configurable `MASTODON_BASE_URL` parameterizing instance endpoints.
-12. **ISSUE-012 (Render Free-Tier Cold Starts):** Lightweight `/health` keepalive pinging to avoid 30s dormancy spin-down.
-13. **ISSUE-013 (Race Conditions via Shared State):** Purely functional, stateless adapter singletons.
+* **Non-Blocking I/O (`httpx.AsyncClient`):** Traditional synchronous HTTP libraries (`requests`, `urllib3`) block the Python event loop under high load. This service uses connection-pooled `httpx.AsyncClient` with keepalive, DNS caching, and explicit socket recycling ([ADR-002](docs/06-adr/ADR-002-async-http-client.md)).
+* **Bulkhead Pattern (`return_exceptions=True`):** Unhandled platform exceptions are captured as exception objects rather than terminating the aggregate coroutine. The aggregator maps individual errors into a standardized `PlatformResult` model ([ADR-004](docs/06-adr/ADR-004-resilience-and-timeouts.md)).
+* **Dual-Tier Timeout Budget:** Each adapter coroutine enforces an **8.0-second** SLA via `asyncio.wait_for`. This leaves a 2.0-second buffer before the global 10.0-second gateway timeout, guaranteeing deterministic error reporting ([ADR-004](docs/06-adr/ADR-004-resilience-and-timeouts.md)).
+* **URL Extraction & Normalization:** Employs RFC 3986-compliant regex parsing with trailing punctuation stripping (handles punctuation like `.,;:!?` adjacent to URLs) and rejects bare domains without explicit `http://` or `https://` schemes ([ADR-007](docs/06-adr/ADR-007-validation-error-model.md)).
+* **Platform-Specific Format Adaptation:**
+  * *Dev.to:* Synthesizes an article title from the first 60 characters and embeds the full text and CTA inside the markdown body.
+  * *Hashnode:* Constructs an authenticated GraphQL mutation (`publishPost`) bound to the configured publication ID.
+  * *LinkedIn:* Formulates a `w_member_social` UGC Share payload with `PUBLIC` visibility.
+  * *Mastodon:* Publishes a status update to the instance configured via `MASTODON_BASE_URL`.
+  * *Telegram:* Dispatches formatted text to the target channel via `sendMessage` using the bot secret token.
 
 ---
 
-## 🌐 4. Integrated Platform Portfolio
+## Supported Platforms
 
-| Platform | Channel Type | Protocol | Auth Standard | Public Visibility | Free API Tier |
-|---|---|---|---|---|---|
-| **LinkedIn** | Professional Social | REST API | OAuth 2.0 User Token | ✅ Public Post URL | ✅ Yes |
-| **Dev.to** | Developer Community | REST API (Forem) | Static API Key | ✅ Public Article URL | ✅ Yes |
-| **Hashnode** | Developer Blogging | GraphQL API | Personal Access Token | ✅ Public Post URL | ✅ Yes |
-| **Mastodon** | Federated Social | REST API | OAuth Bearer Token | ✅ Public Toot URL | ✅ Yes |
-| **Telegram** | Instant Messaging | Bot REST API | Bot Secret Token | ✅ Public Channel URL | ✅ Yes |
+| Platform | Channel Type | Protocol | Authentication Standard | Post URL Format | Public Visibility |
+|---|---|---|---|---|:---:|
+| **LinkedIn** | Professional Social | REST API | OAuth 2.0 Bearer Token | `https://www.linkedin.com/feed/update/urn:li:share:...` | Yes |
+| **Dev.to** | Developer Community | REST API (Forem) | API Key (`api-key` header) | `https://dev.to/{username}/{slug}` | Yes |
+| **Hashnode** | Developer Blogging | GraphQL API | Personal Access Token (`Authorization`) | `https://{blog}.hashnode.dev/{slug}` | Yes |
+| **Mastodon** | Federated Social | REST API | OAuth 2.0 Bearer Token | `https://{instance}/@{user}/{status_id}` | Yes |
+| **Telegram** | Instant Messaging | Bot REST API | Bot Secret Token (URL path) | `https://t.me/{channel}/{message_id}` | Yes |
 
 ---
 
-## 🔌 5. API Specification & Sample Payloads
+## API Specification
 
 ### Ingress Endpoint
+
 ```http
-POST http://localhost:4000/posting
+POST /posting
+Host: localhost:4000
 Content-Type: application/json
+Accept: application/json
 ```
 
-### Request Payload
-```json
-{
-  "message": "Discover cutting-edge microservices and automated publishing pipelines! https://techdeveloper.io"
-}
+### Request Validation Rules
+
+| Rule | Constraint | Error Code | Description |
+|---|---|---|---|
+| **Character Budget** | $\le 200$ chars | `HTTP 422` | The combined message including the CTA URL cannot exceed 200 characters. |
+| **CTA Link Count** | Exactly 1 URL | `HTTP 422` | The message must contain exactly one valid HTTP/HTTPS URL. Zero or $\ge 2$ URLs are rejected. |
+| **Protocol Scheme** | `http://` or `https://` | `HTTP 422` | Protocols must be explicit; bare domains (e.g., `google.com`) or insecure schemas (`ftp://`) are rejected. |
+| **Non-Empty Text** | 1 to 200 chars | `HTTP 422` | Empty strings or whitespace-only inputs are rejected. |
+
+### Example Request
+
+```bash
+curl -X POST "http://localhost:4000/posting" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Accelerate multi-platform content distribution with our high-throughput automated posting service! https://techdeveloper.io"
+  }'
 ```
 
-### Input Validation Invariants
-- **Length:** Maximum 200 unicode characters.
-- **CTA Link:** Exactly one valid HTTP/HTTPS URL.
-- **Protocol:** Strict `http://` or `https://` schemas (bare domains like `example.com` are rejected).
-- **Sanitization:** Automatically cleans URLs wrapped in parentheses or ending in punctuation.
+### Example Response (Partial Success Scenario)
 
-### Response Payload (`HTTP 200 OK`)
 ```json
 {
   "success": true,
@@ -166,7 +167,7 @@ Content-Type: application/json
     {
       "platform": "Dev.to",
       "status": "success",
-      "posted_url": "https://dev.to/piyush/discover-cutting-edge-microservices-abc123",
+      "posted_url": "https://dev.to/piyush/accelerate-multi-platform-content-distribution-abc123",
       "public_access": true,
       "date": "2026-11-18",
       "time": "12:30:16",
@@ -175,7 +176,7 @@ Content-Type: application/json
     {
       "platform": "Hashnode",
       "status": "success",
-      "posted_url": "https://hashnode.com/post/xyz789",
+      "posted_url": "https://piyush.hashnode.dev/accelerate-content-distribution",
       "public_access": true,
       "date": "2026-11-18",
       "time": "12:30:16",
@@ -205,98 +206,137 @@ Content-Type: application/json
 
 ---
 
-## ⚡ 6. Concurrency & Resiliency Benchmarks
+## Engineering Documentation
 
-```
-Execution Comparison (5 Platforms, Realistic Network Latencies):
-Sequential Execution:  T = 1.4s + 0.8s + 1.1s + 0.65s + 0.35s = 4.31 seconds
-Concurrent Execution:  T = max(1.4s, 0.8s, 1.1s, 0.65s, 0.35s) = 1.41 seconds
-Speedup Factor:        3.06x FASTER (Non-blocking asyncio event loop)
-```
+The repository includes a comprehensive, production-grade documentation suite:
 
-- **Bulkhead Guarantee:** If Telegram or LinkedIn times out or fails authentication, the remaining platforms complete and deliver live public URLs.
-- **Timeout Bound:** Each adapter coroutine is wrapped in an isolated `asyncio.wait_for(timeout=8.0)`.
+| Discipline | Specification Files | Description |
+|---|---|---|
+| **Architecture** | [HLD](docs/02-hld.md) · [ADRs (8 Records)](docs/06-adr/) | High-Level Design, C4 diagrams, and 8 Architectural Decision Records |
+| **Contracts** | [PRD](docs/01-prd.md) · [SRS](SRS.md) · [OpenAPI 3.1.0](openapi.yaml) | Functional/NFR requirements, IEEE 830 specification, OpenAPI schema |
+| **Low-Level Design** | [Class Design](docs/lld/01-class-and-object-design.md) · [Concurrency Model](docs/lld/04-concurrency-threading-model.md) | Abstract base adapter, state machines, sequence diagrams, and async loop |
+| **Security & SRE** | [Threat Model](docs/security/01-threat-model-stride.md) · [OWASP Audit](docs/security/02-owasp-api-top10-audit.md) · [Telemetry](docs/observability/01-structured-logging-telemetry.md) | STRIDE analysis, OWASP API Top 10 compliance, JSON structured logging |
+| **Resilience** | [Bulkhead Pattern](docs/resilience/01-fault-tolerance-bulkhead.md) · [Timeouts](docs/resilience/02-timeout-and-retry-policy.md) · [Error Catalog](docs/resilience/03-error-catalogue-degradation.md) | Fault boundaries, dual-tier SLA timeouts, RFC 7807 error taxonomy |
+| **Quality & QA** | [Test Strategy](docs/testing/01-test-strategy-and-pyramid.md) · [Test Catalog](docs/testing/02-test-cases-catalog.md) · [Performance](docs/testing/03-performance-load-testing.md) | Test pyramid, Triad test cases (Positive, Negative, Boundary), k6 benchmarks |
+| **Modeling** | [Complete 13-Diagram UML Suite](uml/) | Structural (Class, Package, Component, Deployment) and Behavioral (Sequence, State, Activity) |
+| **Operations** | [Container Spec](docs/devops/01-docker-and-container-spec.md) · [CI/CD Spec](docs/devops/02-ci-cd-pipeline-spec.md) · [Service DAG](docs/management/02-service-orchestration-dag.md) | OCI Dockerfile, GitHub Actions workflow, service orchestration DAG |
 
 ---
 
-## 🚀 7. Local Setup & Execution Guide
+## Local Setup & Development
 
 ### Prerequisites
-- Python 3.10+ (Python 3.11 recommended)
-- Git
 
-### Installation Steps
+* **Python:** Version 3.10 or higher (Python 3.11 recommended)
+* **Package Manager:** `pip` or `uv`
+* **Git**
+
+### Installation
+
 ```bash
-# 1. Clone repository
+# 1. Clone the repository
 git clone https://github.com/piyushmakhija28/automated-posting.git
 cd automated-posting
 
-# 2. Initialize virtual environment
+# 2. Create and activate a virtual environment
 python -m venv venv
-# Windows:
+# On Windows:
 venv\Scripts\activate
-# Linux/macOS:
+# On Linux/macOS:
 source venv/bin/activate
 
-# 3. Install production & testing dependencies
+# 3. Install dependencies
 pip install -r requirements.txt
+```
 
-# 4. Configure environment credentials
+### Configuration
+
+Create a `.env` file based on `.env.example`:
+
+```bash
 cp .env.example .env
-# Edit .env and supply your API tokens
+```
 
-# 5. Launch local server on port 4000
+Supply credentials for platforms you wish to test live against:
+
+```ini
+PORT=4000
+ENVIRONMENT=development
+LOG_LEVEL=INFO
+
+# Platform API Credentials
+LINKEDIN_ACCESS_TOKEN=your_linkedin_oauth_token
+LINKEDIN_AUTHOR_URN=urn:li:person:your_person_id
+
+DEVTO_API_KEY=your_devto_api_key
+
+HASHNODE_ACCESS_TOKEN=your_hashnode_pat
+HASHNODE_PUBLICATION_ID=your_publication_id
+
+MASTODON_ACCESS_TOKEN=your_mastodon_bearer_token
+MASTODON_BASE_URL=https://mastodon.social
+
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_CHANNEL_ID=@your_channel_handle
+```
+
+> **Testing Mode:** If platform credentials are left empty or set to dummy tokens, the service safely captures authentication failures from the upstream APIs and reports them cleanly in the results array without terminating the server.
+
+### Running the Server
+
+Start the application with Uvicorn on port 4000:
+
+```bash
 uvicorn app.main:app --host 0.0.0.0 --port 4000 --reload
 ```
 
-### Verification & Testing
+* **Interactive Swagger UI:** [http://localhost:4000/docs](http://localhost:4000/docs)
+* **ReDoc Documentation:** [http://localhost:4000/redoc](http://localhost:4000/redoc)
+* **Health Probe:** [http://localhost:4000/health](http://localhost:4000/health)
+
+### Running the Test Suite
+
+Execute the automated test suite with coverage enforcement ($\ge 90\%$):
+
 ```bash
-# Run complete test suite with coverage gate (>= 90%)
+# Run all unit, integration, and edge-case tests with coverage
 pytest tests/ -v --cov=app --cov-report=term-missing --cov-fail-under=90
 
-# Static code quality gates
+# Static type checking
+mypy app/ --strict
+
+# Linting and formatting checks
 ruff check app/ tests/
 black --check app/ tests/
-mypy app/ --strict
-bandit -r app/
-
-# Interactive API Documentation
-open http://localhost:4000/docs
 ```
 
 ---
 
-## 🌐 8. Live Demo & Public Deployment
+## Docker Deployment
 
-| Environment | Live URL | Endpoint |
-|---|---|---|
-| **Production Demo** | `https://automated-posting-dxora.onrender.com` | `POST /posting` |
-| **Swagger UI Documentation** | `https://automated-posting-dxora.onrender.com/docs` | Interactive API Console |
-| **Liveness Probe** | `https://automated-posting-dxora.onrender.com/health` | HTTP 200 `{ "status": "ok" }` |
-| **Readiness Probe** | `https://automated-posting-dxora.onrender.com/ready` | HTTP 200 `{ "status": "ready" }` |
+Build and run using the multi-stage, non-root Docker container:
 
-> *Note on Free-Tier Hosting:* Render.com free-tier instances may sleep after 15 minutes of inactivity. If the service is waking from cold start, the initial request may take 30–45 seconds, after which all requests respond in sub-2 seconds.
+```bash
+# Build Docker image
+docker build -t automated-posting:latest .
 
----
+# Run container on port 4000
+docker run -d --name automated-posting-svc \
+  -p 4000:4000 \
+  --env-file .env \
+  automated-posting:latest
 
-## 📊 9. Practical Test Evaluation Criteria Matrix
-
-| Evaluation Criteria | Practical Test Weight | Architectural Implementation & Evidence | Status |
-|---|---:|---|---|
-| **FastAPI Implementation & API Structure** | 15 Marks | Clean layered architecture (Router $\to$ Validator $\to$ Service $\to$ Adapter). Lifespan handlers, Pydantic v2 settings. | ✅ 15/15 |
-| **Input Validation & Ingress Hardening** | 15 Marks | Multi-tier Pydantic validation, regex extraction, punctuation stripping, strict 1 CTA URL invariant, SSRF immunity. | ✅ 15/15 |
-| **Platform Research & API Integration** | 25 Marks | 5 production-grade adapters (LinkedIn OAuth, Dev.to REST, Hashnode GraphQL, Mastodon REST, Telegram Bot). | ✅ 25/25 |
-| **Automatic Multi-Platform Posting** | 20 Marks | Concurrent async fan-out via `asyncio.gather(..., return_exceptions=True)`. $3\times$ latency reduction. | ✅ 20/20 |
-| **Error Handling & Response Management** | 10 Marks | Bulkhead fault isolation, 8.0s timeout per adapter, 429 rate limit detection, deterministic RFC 7807 telemetry. | ✅ 10/10 |
-| **Code Quality & Documentation** | 15 Marks | Complete 10-level SDLC documentation suite (45+ files), IEEE 830 SRS, 13 UML diagrams, $\ge 90\%$ test coverage. | ✅ 15/15 |
-| **Total** | **100 Marks** | **Principal / Senior Staff Level Execution** | **100/100** |
+# Verify health
+curl -f http://localhost:4000/health
+```
 
 ---
 
-## 👨‍💻 10. Developer & Submission Information
+## Submission Metadata
 
-- **Full Name:** Piyush Makhija
-- **LinkedIn Profile:** [linkedin.com/in/piyushmakhija](https://www.linkedin.com/in/piyushmakhija) *(Mandatory follow verified)*
-- **Instagram Profile:** [instagram.com/piyush_makhija](https://www.instagram.com) *(Mandatory follow verified)*
-- **GitHub Repository:** [github.com/piyushmakhija28/automated-posting](https://github.com/piyushmakhija28/automated-posting)
-- **Submission Destination:** `hr@chivoxai.com` | Dxora Technologies Practical Test
+* **Candidate:** Piyush Makhija
+* **Practical Test Assessment:** Dxora Technologies (Automated Multi-Platform Posting System)
+* **Submission Deadline:** 22nd November 2026
+* **Destination Email:** `hr@chivoxai.com`
+* **GitHub Repository:** [piyushmakhija28/automated-posting](https://github.com/piyushmakhija28/automated-posting)
+* **LinkedIn Profile:** [linkedin.com/in/piyushmakhija](https://www.linkedin.com/in/piyushmakhija)
