@@ -35,13 +35,21 @@ class PostingResponseDto(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="ignore")
 
+    success: bool = Field(
+        default=True,
+        description="Top-level execution flag (true if at least 1 platform succeeded).",
+    )
     status: Literal["success", "partial_success", "failed"] = Field(
-        ...,
+        default="success",
         description="Aggregate broadcast outcome state.",
     )
     message: str = Field(..., description="Human-readable summary message.")
-    total_platforms: int = Field(..., description="Total platforms attempted.")
+    total_platforms: int = Field(default=5, description="Total platforms attempted.")
     successful_posts: int = Field(..., description="Number of successful posts.")
     failed_posts: int = Field(..., description="Number of failed posts.")
+    execution_time_seconds: float | None = Field(
+        default=None,
+        description="Total wall-clock duration of concurrent broadcast in seconds.",
+    )
     results: list[PlatformResultDto] = Field(..., description="Itemized outcome for each platform.")
     telemetry: TelemetryDto | None = Field(default=None, description="Request execution telemetry.")

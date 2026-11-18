@@ -88,3 +88,22 @@ class PlatformConstants:
     STATUS_SUCCESS: Final[str] = "success"
     STATUS_FAILED: Final[str] = "failed"
     STATUS_SKIPPED: Final[str] = "skipped"
+
+
+class ErrorCodeConstants:
+    """Standardized machine-readable error codes matching openapi.yaml RFC 7807 specification."""
+
+    ERR_CHAR_LIMIT_EXCEEDED: Final[str] = "ERR_CHAR_LIMIT_EXCEEDED"
+    ERR_MISSING_CTA_URL: Final[str] = "ERR_MISSING_CTA_URL"
+    ERR_MULTIPLE_CTA_URLS: Final[str] = "ERR_MULTIPLE_CTA_URLS"
+    ERR_INVALID_URL_SCHEME: Final[str] = "ERR_INVALID_URL_SCHEME"
+    ERR_EMPTY_MESSAGE: Final[str] = "ERR_EMPTY_MESSAGE"
+    ERR_MISSING_FIELD: Final[str] = "ERR_MISSING_FIELD"
+    ERR_MALFORMED_JSON: Final[str] = "ERR_MALFORMED_JSON"
+    ERR_MALICIOUS_CONTROL_CHARS: Final[str] = "ERR_MALICIOUS_CONTROL_CHARS"
+    ERR_SSRF_PROHIBITED: Final[str] = "ERR_SSRF_PROHIBITED"
+    ERR_PROHIBITED_PORT: Final[str] = "ERR_PROHIBITED_PORT"
+    ERR_RATE_LIMITED: Final[str] = "ERR_RATE_LIMITED"
+    ERR_GATEWAY_TIMEOUT: Final[str] = "ERR_GATEWAY_TIMEOUT"
+    ERR_INTERNAL_SERVER: Final[str] = "ERR_INTERNAL_SERVER"
+    ERR_PROMPT_INJECTION: Final[str] = "ERR_PROMPT_INJECTION"

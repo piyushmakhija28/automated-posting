@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
-from app.core.constants import ValidationMessageConstants
+from app.core.constants import ErrorCodeConstants, ValidationMessageConstants
 from app.core.exceptions import MessageValidationError, SecurityThreatError, UrlExtractionError
 
 
@@ -73,16 +73,30 @@ class PostingForm(BaseModel):
         """
         # Stage 1: Null & Type Screening
         if raw_value is None:
-            raise MessageValidationError(ValidationMessageConstants.MSG_NOT_NULL)
+            raise MessageValidationError(
+                ValidationMessageConstants.MSG_NOT_NULL,
+                error_code=ErrorCodeConstants.ERR_MISSING_FIELD,
+            )
         if not isinstance(raw_value, str):
-            raise MessageValidationError(ValidationMessageConstants.MSG_NOT_BLANK)
+            raise MessageValidationError(
+                ValidationMessageConstants.MSG_NOT_BLANK,
+                error_code=ErrorCodeConstants.ERR_EMPTY_MESSAGE,
+            )
 
-        # Stage 2: Trojan Source Detection, Unicode Normalization & Invisible Character Stripping
+        # Stage 2: Trojan Source Detection, Control Chars & Invisible Character Stripping
+        if "\x00" in raw_value:
+            raise SecurityThreatError(
+                "Null byte control characters are strictly prohibited.",
+                threat_type="NULL_BYTE_INJECTION",
+                error_code=ErrorCodeConstants.ERR_MALICIOUS_CONTROL_CHARS,
+            )
+
         bidi_pattern = re.compile(r"[\u202A-\u202E\u2066-\u2069]")
         if bidi_pattern.search(raw_value):
             raise SecurityThreatError(
                 ValidationMessageConstants.MSG_SUSPICIOUS_PAYLOAD,
                 threat_type="BIDI_OVERRIDE_INJECTION",
+                error_code=ErrorCodeConstants.ERR_MALICIOUS_CONTROL_CHARS,
             )
 
         normalized = unicodedata.normalize("NFKC", raw_value)
@@ -90,26 +104,40 @@ class PostingForm(BaseModel):
         stripped = cleaned.strip()
 
         if not stripped:
-            raise MessageValidationError(ValidationMessageConstants.MSG_NOT_BLANK)
+            raise MessageValidationError(
+                ValidationMessageConstants.MSG_NOT_BLANK,
+                error_code=ErrorCodeConstants.ERR_EMPTY_MESSAGE,
+            )
+
+        # Collapse consecutive internal whitespace to prevent layout breakage
+        collapsed = re.sub(r"[ \t]+", " ", stripped)
 
         # Stage 3: Character Length Enforcement (<= 200 unicode characters)
-        if len(stripped) > 200:
-            raise MessageValidationError(ValidationMessageConstants.MSG_TOO_LONG)
+        if len(collapsed) > 200:
+            raise MessageValidationError(
+                ValidationMessageConstants.MSG_TOO_LONG,
+                error_code=ErrorCodeConstants.ERR_CHAR_LIMIT_EXCEEDED,
+            )
 
         # Stage 4: URL Extraction & Count Invariant (Exactly 1 CTA URL)
         url_regex = re.compile(
             r"[a-zA-Z][a-zA-Z0-9+.-]*://(?:[a-zA-Z0-9\-._~%!$&'()*+,;=]+@)?(?:[a-zA-Z0-9\-._~%]+|\[[a-fA-F0-9:.]+\])(?::\d+)?(?:/[^\s]*)?",
             re.IGNORECASE,
         )
-        raw_matches = url_regex.findall(stripped)
+        raw_matches = url_regex.findall(collapsed)
         cleaned_matches = [m.rstrip(".,;!?:)'\"") for m in raw_matches]
 
         if len(cleaned_matches) == 0:
-            raise UrlExtractionError(ValidationMessageConstants.MSG_URL_REQUIRED, count=0)
+            raise UrlExtractionError(
+                ValidationMessageConstants.MSG_URL_REQUIRED,
+                count=0,
+                error_code=ErrorCodeConstants.ERR_MISSING_CTA_URL,
+            )
         if len(cleaned_matches) > 1:
             raise UrlExtractionError(
                 ValidationMessageConstants.MSG_URL_MULTIPLE.format(count=len(cleaned_matches)),
                 count=len(cleaned_matches),
+                error_code=ErrorCodeConstants.ERR_MULTIPLE_CTA_URLS,
             )
 
         target_url = cleaned_matches[0]
@@ -117,9 +145,15 @@ class PostingForm(BaseModel):
         # Stage 5: URL Scheme & SSRF Protection
         parsed = urlparse(target_url)
         if parsed.scheme.lower() not in ("http", "https"):
-            raise MessageValidationError(ValidationMessageConstants.MSG_URL_INVALID_SCHEME)
+            raise MessageValidationError(
+                ValidationMessageConstants.MSG_URL_INVALID_SCHEME,
+                error_code=ErrorCodeConstants.ERR_INVALID_URL_SCHEME,
+            )
         if not parsed.hostname:
-            raise MessageValidationError(ValidationMessageConstants.MSG_URL_INVALID_SCHEME)
+            raise MessageValidationError(
+                ValidationMessageConstants.MSG_URL_INVALID_SCHEME,
+                error_code=ErrorCodeConstants.ERR_INVALID_URL_SCHEME,
+            )
 
         hostname = parsed.hostname.lower()
         blocked_hostnames = {
@@ -135,6 +169,7 @@ class PostingForm(BaseModel):
             raise SecurityThreatError(
                 ValidationMessageConstants.MSG_URL_SSRF_BLOCKED,
                 threat_type="SSRF_PROHIBITED_HOST",
+                error_code=ErrorCodeConstants.ERR_SSRF_PROHIBITED,
             )
 
         try:
@@ -143,6 +178,7 @@ class PostingForm(BaseModel):
                 raise SecurityThreatError(
                     ValidationMessageConstants.MSG_URL_SSRF_BLOCKED,
                     threat_type="SSRF_PRIVATE_IP",
+                    error_code=ErrorCodeConstants.ERR_SSRF_PROHIBITED,
                 )
         except ValueError:
             pass
@@ -152,11 +188,12 @@ class PostingForm(BaseModel):
             r"(ignore\s+all\s+previous\s+instructions|system\s+prompt|drop\s+database|drop\s+table)",
             re.IGNORECASE,
         )
-        if injection_pattern.search(stripped):
+        if injection_pattern.search(collapsed):
             raise SecurityThreatError(
                 ValidationMessageConstants.MSG_PROMPT_INJECTION_DETECTED,
                 threat_type="PROMPT_INJECTION",
+                error_code=ErrorCodeConstants.ERR_PROMPT_INJECTION,
             )
 
         # Stage 7: Canonicalization Complete
-        return stripped
+        return collapsed

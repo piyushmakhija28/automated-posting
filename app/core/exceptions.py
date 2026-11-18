@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from app.core.constants import ErrorCodeConstants
+
 
 class ApplicationException(Exception):
     """Root base exception for all application-controlled errors."""
@@ -38,22 +40,35 @@ class DomainException(ApplicationException):
 class MessageValidationError(DomainException):
     """Raised when message fails length, syntax, or character invariants."""
 
-    def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+        error_code: str = ErrorCodeConstants.ERR_CHAR_LIMIT_EXCEEDED,
+    ) -> None:
         """Initializes message validation error with 422 Unprocessable Content."""
-        super().__init__(
-            message, http_status=422, error_code="MESSAGE_VALIDATION_FAILED", details=details
-        )
+        super().__init__(message, http_status=422, error_code=error_code, details=details)
 
 
 class UrlExtractionError(DomainException):
     """Raised when CTA URL extraction detects 0 or >1 URLs."""
 
-    def __init__(self, message: str, count: int) -> None:
+    def __init__(
+        self,
+        message: str,
+        count: int,
+        error_code: str | None = None,
+    ) -> None:
         """Initializes URL extraction error with detected count."""
+        resolved_code = error_code or (
+            ErrorCodeConstants.ERR_MISSING_CTA_URL
+            if count == 0
+            else ErrorCodeConstants.ERR_MULTIPLE_CTA_URLS
+        )
         super().__init__(
             message,
             http_status=422,
-            error_code="INVALID_URL_COUNT",
+            error_code=resolved_code,
             details={"detected_urls_count": count},
         )
         self.count = count
@@ -62,12 +77,17 @@ class UrlExtractionError(DomainException):
 class SecurityThreatError(DomainException):
     """Raised when prompt injection, SSRF, or malicious payload is screened."""
 
-    def __init__(self, message: str, threat_type: str) -> None:
+    def __init__(
+        self,
+        message: str,
+        threat_type: str,
+        error_code: str = ErrorCodeConstants.ERR_SSRF_PROHIBITED,
+    ) -> None:
         """Initializes security threat error with 422 Unprocessable Content."""
         super().__init__(
             message,
             http_status=422,
-            error_code="SECURITY_THREAT_DETECTED",
+            error_code=error_code,
             details={"threat_type": threat_type},
         )
         self.threat_type = threat_type

@@ -5,7 +5,7 @@ import logging
 
 import pytest
 
-from app.core.constants import ValidationMessageConstants
+from app.core.constants import ErrorCodeConstants, ValidationMessageConstants
 from app.core.exceptions import (
     MessageValidationError,
     PlatformRateLimitException,
@@ -19,6 +19,9 @@ from app.core.logging import (
     correlation_id_ctx,
     setup_logging,
 )
+from app.models.dtos.platform_dto import PlatformResultDto
+from app.models.dtos.posting_dto import PostingResponseDto
+from app.models.dtos.problem_dto import ProblemDetailsDto
 from app.models.forms.posting_form import PostingForm
 
 
@@ -282,3 +285,82 @@ class TestLoggingAndExceptions:
         assert exc_rate.http_status == 502
         assert exc_rate.status_code == 429
         assert exc_rate.retry_after == 300
+
+    def test_null_byte_control_character_rejected(self) -> None:
+        """Verifies null byte injection triggers ERR_MALICIOUS_CONTROL_CHARS per Security Spec."""
+        text = "Malicious\x00 payload with URL: https://example.com/exploit"
+        with pytest.raises(SecurityThreatError) as exc_info:
+            PostingForm(message=text)
+        assert exc_info.value.error_code == ErrorCodeConstants.ERR_MALICIOUS_CONTROL_CHARS
+        assert exc_info.value.threat_type == "NULL_BYTE_INJECTION"
+
+    def test_error_codes_conform_to_openapi_specification(self) -> None:
+        """Verifies domain exceptions emit standardized OpenAPI error codes."""
+        with pytest.raises(MessageValidationError) as exc_blank:
+            PostingForm(message="   ")
+        assert exc_blank.value.error_code == ErrorCodeConstants.ERR_EMPTY_MESSAGE
+
+        with pytest.raises(MessageValidationError) as exc_len:
+            PostingForm(message="A" * 201)
+        assert exc_len.value.error_code == ErrorCodeConstants.ERR_CHAR_LIMIT_EXCEEDED
+
+        with pytest.raises(UrlExtractionError) as exc_no_url:
+            PostingForm(message="Valid text without any url link")
+        assert exc_no_url.value.error_code == ErrorCodeConstants.ERR_MISSING_CTA_URL
+
+        with pytest.raises(UrlExtractionError) as exc_multi_url:
+            PostingForm(message="https://a.com and https://b.com")
+        assert exc_multi_url.value.error_code == ErrorCodeConstants.ERR_MULTIPLE_CTA_URLS
+
+        with pytest.raises(MessageValidationError) as exc_scheme:
+            PostingForm(message="ftp://archive.org/file")
+        assert exc_scheme.value.error_code == ErrorCodeConstants.ERR_INVALID_URL_SCHEME
+
+        with pytest.raises(SecurityThreatError) as exc_ssrf:
+            PostingForm(message="http://127.0.0.1/admin")
+        assert exc_ssrf.value.error_code == ErrorCodeConstants.ERR_SSRF_PROHIBITED
+
+    def test_dto_openapi_field_conformance(self) -> None:
+        """Verifies DTO models serialize all fields defined in openapi.yaml and README."""
+        platform_dto = PlatformResultDto(
+            platform="LinkedIn",
+            status="success",
+            posted_url="https://www.linkedin.com/feed/update/urn:li:share:123",
+            public_access=True,
+            date="2026-11-18",
+            time="12:30:15",
+            latency_ms=120.5,
+        )
+        assert platform_dto.posted_url == "https://www.linkedin.com/feed/update/urn:li:share:123"
+        assert platform_dto.post_url == platform_dto.posted_url
+        assert platform_dto.public_access is True
+        assert platform_dto.date == "2026-11-18"
+        assert platform_dto.time == "12:30:15"
+
+        posting_dto = PostingResponseDto(
+            success=True,
+            status="success",
+            message="Broadcast completed successfully across all configured platforms.",
+            total_platforms=5,
+            successful_posts=5,
+            failed_posts=0,
+            execution_time_seconds=0.45,
+            results=[platform_dto],
+        )
+        data = posting_dto.model_dump(mode="json")
+        assert data["success"] is True
+        assert data["total_platforms"] == 5
+        assert data["successful_posts"] == 5
+        assert data["failed_posts"] == 0
+        assert data["execution_time_seconds"] == 0.45
+        assert len(data["results"]) == 1
+
+        problem = ProblemDetailsDto(
+            type="https://dxora.com/errors/character-budget-exceeded",
+            title="Character Budget Exceeded",
+            status=422,
+            detail="Message length exceeds 200 characters.",
+            instance="/posting",
+            code=ErrorCodeConstants.ERR_CHAR_LIMIT_EXCEEDED,
+        )
+        assert problem.code == "ERR_CHAR_LIMIT_EXCEEDED"
