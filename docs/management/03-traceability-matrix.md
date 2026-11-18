@@ -2,39 +2,40 @@
 
 **Document ID:** `DOC-MGT-03-TRACEABILITY`  
 **Project:** `automated-posting`  
-**Author:** Principal Software Architect
-**Reviewer:** Staff Backend Engineering Lead
-**Status:** APPROVED  
-**Standard:** ISO/IEC/IEEE 15288 Verification and Validation, IEEE 830 Traceability
+**Author:** Principal Software Architect & Staff Systems Engineer  
+**Status:** APPROVED & SYNCHRONIZED  
+**Standard:** ISO/IEC/IEEE 15288 Verification and Validation, IEEE 830 Traceability, GitHub Agile Governance  
 
 ---
 
 ## 1. Master End-to-End Traceability Matrix
 
-This matrix establishes complete, unbroken forward and backward traceability across the entire software development lifecycle:
+This matrix establishes complete, unbroken forward and backward traceability across requirements, architecture blueprints, concrete target files, test suites, and GitHub sprint issues:
 
-| Practical Test Requirement | PRD FR ID | SRS Requirement | HLD / LLD Component | ADR Reference | Target File | Verification Test ID |
-|---|---|---|---|---|---|---|
-| Single endpoint `POST /posting` | FR-001 | FR-001 | Ingress Router Component | ADR-001 | `app/main.py` | `test_post_message_success` |
-| Max 200 characters validation | FR-002 | FR-002 | Pydantic Request Model | ADR-007 | `app/schemas.py` | `test_post_message_too_long` |
-| Exactly one CTA link required | FR-003 | FR-003 | Ingress Regex Extractor | ADR-007 | `app/utils/validators.py` | `test_post_message_no_url`, `test_post_message_multiple_urls` |
-| URL format validation & strip | FR-004 | FR-004 | Syntax Sanitizer Function | ADR-007 | `app/utils/validators.py` | `test_clean_url_edge_cases` |
-| Internal platform selection | FR-005 | FR-005 | Autonomous Service Registry | ADR-005 | `app/services/posting_service.py` | `test_post_message_success` |
-| Platform 1: LinkedIn integration | FR-006 | FR-006 | `LinkedInPlatform` Adapter | ADR-005 | `app/platforms/linkedin.py` | `test_linkedin_adapter_success` |
-| Platform 2: Dev.to integration | FR-007 | FR-007 | `DevToPlatform` Adapter | ADR-005 | `app/platforms/devto.py` | `test_devto_adapter_success` |
-| Platform 3: Hashnode integration | FR-008 | FR-008 | `HashnodePlatform` Adapter | ADR-005 | `app/platforms/hashnode.py` | `test_hashnode_adapter_success` |
-| Platform 4: Mastodon integration | FR-009 | FR-009 | `MastodonPlatform` Adapter | ADR-005 | `app/platforms/mastodon.py` | `test_mastodon_adapter_success` |
-| Platform 5: Telegram integration | FR-010 | FR-010 | `TelegramPlatform` Adapter | ADR-005 | `app/platforms/telegram.py` | `test_telegram_adapter_success` |
-| Parallel async execution | FR-011 | FR-011 | Asyncio Fan-Out Engine | ADR-003 | `app/services/posting_service.py` | `test_parallel_execution_latency` |
-| Failure isolation (1 fail != all) | FR-012 | FR-012 | Bulkhead Try/Catch Boundary | ADR-004 | `app/services/posting_service.py` | `test_partial_failure_isolation` |
-| Per-adapter 8.0s timeout | FR-013 | FR-013 | `asyncio.wait_for` Timeout | ADR-004 | `app/services/posting_service.py` | `test_adapter_timeout_handling` |
-| Rate limiting detection (429) | FR-014 | FR-014 | `handle_http_error` Routine | ADR-004 | `app/platforms/base.py` | `test_rate_limit_interception` |
-| Structured response JSON | FR-015 | FR-015 | `PostResponse` Schema | ADR-007 | `app/schemas.py` | `test_response_schema_conformance` |
-| Liveness and Readiness probes | FR-016 | FR-016 | SRE Health Controller | ADR-008 | `app/main.py` | `test_health_and_ready_probes` |
-| 7-Stage Input Sanitization (BOM, NFKC, Bidi) | FR-017 | FR-017 | `PostRequest.sanitize_raw_input` | DOC-SEC-04 | `app/schemas.py`, `app/utils/validators.py` | `test_input_sanitization_pipeline`, `test_trojan_source_bidi_rejection` |
-| SSRF & Hostname Threat Defense | FR-018 | FR-018 | `PostRequest.validate_invariants_and_ssrf` | DOC-SEC-04 | `app/utils/validators.py` | `test_ssrf_prohibited_destinations`, `test_prohibited_internal_ports` |
-| Adapter Factory & Dynamic Discovery | LLD-05 | LLD-05 | `AdapterRegistry` Factory | ADR-005 | `app/platforms/registry.py` | `test_adapter_registry_discovery` |
-| Two-Level Domain Exception Hierarchy | LLD-06 | LLD-06 | `PostingAppException` & Handlers | ADR-007 | `app/exceptions.py` | `test_domain_exception_rfc7807_mapping` |
-| Docker Containerization | NFR-006 | NFR-006 | Multi-Stage OCI Image | ADR-008 | `Dockerfile` | Container build test |
-| Zero Secrets in Logs | NFR-003 | NFR-003 | `SensitiveDataFilter` Logger | ADR-006 | `app/utils/logger.py` | `test_logger_redaction` |
-| $\ge 90\%$ Code Coverage Gate | NFR-002 | NFR-002 | Pytest Test Harness | ADR-002 | `tests/test_posting.py` | `pytest --cov=app` |
+| Practical Test Requirement | PRD FR ID | SRS ID | HLD / LLD Component | Target File(s) | GitHub Sprint Issue | Verification Test ID |
+|---|---|---|---|---|:---:|---|
+| Single endpoint `POST /posting` | FR-001 | FR-001 | Ingress Router Controller | `app/routers/posting.py` | [#6](https://github.com/piyushmakhija28/automated-posting/issues/6) | `test_router_posting.py::test_post_success` |
+| Max 200 characters validation | FR-002 | FR-002 | Ingress PostingForm (Stage 3) | `app/models/forms/posting_form.py` | [#2](https://github.com/piyushmakhija28/automated-posting/issues/2) | `test_validation_pipeline.py::test_char_limit` |
+| Exactly one CTA link required | FR-003 | FR-003 | Ingress Regex Extractor (Stage 4) | `app/models/forms/posting_form.py` | [#2](https://github.com/piyushmakhija28/automated-posting/issues/2) | `test_validation_pipeline.py::test_single_cta` |
+| URL format validation & strip | FR-004 | FR-004 | Syntax Sanitizer & NFKC (Stage 2) | `app/models/forms/posting_form.py` | [#2](https://github.com/piyushmakhija28/automated-posting/issues/2) | `test_validation_pipeline.py::test_clean_url` |
+| Internal platform selection | FR-005 | FR-005 | Autonomous Service Registry | `app/platforms/registry.py` | [#3](https://github.com/piyushmakhija28/automated-posting/issues/3) | `test_adapters.py::test_registry_discovery` |
+| Platform 1: LinkedIn integration | FR-006 | FR-006 | `LinkedInAdapter` (UGC Post API) | `app/platforms/linkedin.py` | [#8](https://github.com/piyushmakhija28/automated-posting/issues/8) | `test_adapters.py::test_linkedin_adapter` |
+| Platform 2: Dev.to integration | FR-007 | FR-007 | `DevToAdapter` (Forem Articles) | `app/platforms/devto.py` | [#9](https://github.com/piyushmakhija28/automated-posting/issues/9) | `test_adapters.py::test_devto_adapter` |
+| Platform 3: Hashnode integration | FR-008 | FR-008 | `HashnodeAdapter` (GraphQL API) | `app/platforms/hashnode.py` | [#10](https://github.com/piyushmakhija28/automated-posting/issues/10) | `test_adapters.py::test_hashnode_adapter` |
+| Platform 4: Mastodon integration | FR-009 | FR-009 | `MastodonAdapter` (Statuses API) | `app/platforms/mastodon.py` | [#11](https://github.com/piyushmakhija28/automated-posting/issues/11) | `test_adapters.py::test_mastodon_adapter` |
+| Platform 5: Telegram integration | FR-010 | FR-010 | `TelegramAdapter` (Bot sendMessage) | `app/platforms/telegram.py` | [#12](https://github.com/piyushmakhija28/automated-posting/issues/12) | `test_adapters.py::test_telegram_adapter` |
+| Parallel async execution | FR-011 | FR-011 | Bulkhead `asyncio.gather` Fan-Out | `app/services/posting_service.py` | [#5](https://github.com/piyushmakhija28/automated-posting/issues/5) | `test_service_posting.py::test_parallel_fanout` |
+| Failure isolation (1 fail != all) | FR-012 | FR-012 | `_safe_execute` Try/Catch Boundary | `app/services/posting_service.py` | [#5](https://github.com/piyushmakhija28/automated-posting/issues/5) | `test_resilience_bulkhead.py::test_partial_failure` |
+| Per-adapter 3.0s timeout SLA | FR-013 | FR-013 | `asyncio.wait_for` SLA Guard | `app/services/posting_service.py` | [#5](https://github.com/piyushmakhija28/automated-posting/issues/5) | `test_resilience_bulkhead.py::test_adapter_timeout` |
+| Rate limiting detection (429) | FR-014 | FR-014 | `_handle_error` Upstream Normalizer | `app/platforms/base.py` | [#3](https://github.com/piyushmakhija28/automated-posting/issues/3) | `test_adapters.py::test_rate_limit_interception` |
+| Structured response JSON | FR-015 | FR-015 | `PostingResponseDto` & DTO Helper | `app/models/dtos/posting_dto.py` | [#5](https://github.com/piyushmakhija28/automated-posting/issues/5) | `test_service_posting.py::test_response_schema` |
+| Liveness and Readiness probes | FR-016 | FR-016 | SRE Health Probes (`/health`, `/ready`) | `app/routers/health.py` | [#6](https://github.com/piyushmakhija28/automated-posting/issues/6) | `test_router_health.py::test_probes` |
+| 7-Stage Input Sanitization | FR-017 | FR-017 | NFKC, BOM, Zero-Width, Bidi Rejection | `app/models/forms/posting_form.py` | [#2](https://github.com/piyushmakhija28/automated-posting/issues/2) | `test_validation_pipeline.py::test_sanitization` |
+| SSRF & Hostname Threat Defense | FR-018 | FR-018 | RFC 1918 Private IP & Loopback Filter | `app/models/forms/posting_form.py` | [#2](https://github.com/piyushmakhija28/automated-posting/issues/2) | `test_validation_pipeline.py::test_ssrf_filter` |
+| Adapter Factory & Discovery | LLD-05 | LLD-05 | `AdapterRegistry` Factory Pattern | `app/platforms/registry.py` | [#3](https://github.com/piyushmakhija28/automated-posting/issues/3) | `test_adapters.py::test_registry_factory` |
+| Domain Exception Hierarchy | LLD-06 | LLD-06 | `ApplicationException` & RFC 7807 | `app/core/exceptions.py` | [#2](https://github.com/piyushmakhija28/automated-posting/issues/2) | `test_router_posting.py::test_rfc7807_mapping` |
+| Centralized Typed Constants | LLD-07 | LLD-07 | 4 Dedicated Constant Classes | `app/core/constants.py` | [#2](https://github.com/piyushmakhija28/automated-posting/issues/2) | `test_validation_pipeline.py::test_constants` |
+| Zero Secrets in Logs | NFR-003 | NFR-003 | `SensitiveDataFilter` Logger Filter | `app/core/logging.py` | [#2](https://github.com/piyushmakhija28/automated-posting/issues/2) | `test_validation_pipeline.py::test_log_masking` |
+| $\ge 90\%$ Code Coverage Gate | NFR-002 | NFR-002 | Triad Testing Across 11 Layers | `tests/test_*.py` | [#7](https://github.com/piyushmakhija28/automated-posting/issues/7) | `pytest --cov=app --cov-fail-under=90` |
+| Multi-Stage Containerization | NFR-006 | NFR-006 | Multi-Stage Non-Root OCI Image | `Dockerfile` | [#13](https://github.com/piyushmakhija28/automated-posting/issues/13) | Container build & health check test |
+| Automated CI/CD Pipeline | NFR-007 | NFR-007 | GitHub Actions CI/CD Workflow | `.github/workflows/ci-cd.yml` | [#14](https://github.com/piyushmakhija28/automated-posting/issues/14) | GitHub Actions CI runner verification |
