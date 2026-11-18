@@ -94,6 +94,7 @@ flowchart TD
 * **Non-Blocking I/O (`httpx.AsyncClient`):** Traditional synchronous HTTP libraries (`requests`, `urllib3`) block the Python event loop under high load. This service uses connection-pooled `httpx.AsyncClient` with keepalive, DNS caching, and explicit socket recycling ([ADR-002](docs/06-adr/ADR-002-async-http-client.md)).
 * **Bulkhead Pattern (`return_exceptions=True`):** Unhandled platform exceptions are captured as exception objects rather than terminating the aggregate coroutine. The aggregator maps individual errors into a standardized `PlatformResult` model ([ADR-004](docs/06-adr/ADR-004-resilience-and-timeouts.md)).
 * **Dual-Tier Timeout Budget:** Each adapter coroutine enforces an **8.0-second** SLA via `asyncio.wait_for`. This leaves a 2.0-second buffer before the global 10.0-second gateway timeout, guaranteeing deterministic error reporting ([ADR-004](docs/06-adr/ADR-004-resilience-and-timeouts.md)).
+* **7-Stage Ingress Sanitization Pipeline:** Raw input undergoes automated BOM stripping, Unicode NFKC canonicalization, Trojan Source Bidi override rejection (CVE-2021-42574), zero-width character elimination, trailing punctuation stripping, and SSRF screening against loopback, private subnets, cloud metadata (`169.254.169.254`), and prohibited internal ports ([Sanitization Spec](docs/security/04-input-validation-and-sanitization-pipeline.md)).
 * **URL Extraction & Normalization:** Employs RFC 3986-compliant regex parsing with trailing punctuation stripping (handles punctuation like `.,;:!?` adjacent to URLs) and rejects bare domains without explicit `http://` or `https://` schemes ([ADR-007](docs/06-adr/ADR-007-validation-error-model.md)).
 * **Platform-Specific Format Adaptation:**
   * *Dev.to:* Synthesizes an article title from the first 60 characters and embeds the full text and CTA inside the markdown body.
@@ -135,6 +136,9 @@ Accept: application/json
 | **CTA Link Count** | Exactly 1 URL | `HTTP 422` | The message must contain exactly one valid HTTP/HTTPS URL. Zero or $\ge 2$ URLs are rejected. |
 | **Protocol Scheme** | `http://` or `https://` | `HTTP 422` | Protocols must be explicit; bare domains (e.g., `google.com`) or insecure schemas (`ftp://`) are rejected. |
 | **Non-Empty Text** | 1 to 200 chars | `HTTP 422` | Empty strings or whitespace-only inputs are rejected. |
+| **Sanitization & Normalization** | Unicode NFKC | `HTTP 422` | Strips BOM/zero-width chars (`\uFEFF`, `\u200B`), canonicalizes Unicode codepoints, collapses internal spaces. |
+| **Trojan Source Defense** | No Bidi Override | `HTTP 422` | Bidirectional control chars (`\u202A`–`\u202E`) and null bytes (`\x00`) trigger immediate rejection (`ERR_MALICIOUS_CONTROL_CHARS`). |
+| **SSRF Threat Screening** | Public FQDN Only | `HTTP 422` | Prohibits loopback (`127.0.0.1`, `localhost`), RFC 1918 private subnets, cloud metadata (`169.254.169.254`), and internal ports (`22, 25, 3306, 5432, 6379`). |
 
 ### Example Request
 
@@ -216,7 +220,7 @@ The repository includes a comprehensive, production-grade documentation suite:
 | **Architecture** | [HLD](docs/02-hld.md) · [ADRs (8 Records)](docs/06-adr/) | High-Level Design, C4 diagrams, and 8 Architectural Decision Records |
 | **Contracts** | [PRD](docs/01-prd.md) · [SRS](SRS.md) · [OpenAPI 3.1.0](openapi.yaml) | Functional/NFR requirements, IEEE 830 specification, OpenAPI schema |
 | **Low-Level Design** | [Class Design](docs/lld/01-class-and-object-design.md) · [Concurrency Model](docs/lld/04-concurrency-threading-model.md) | Abstract base adapter, state machines, sequence diagrams, and async loop |
-| **Security & SRE** | [Threat Model](docs/security/01-threat-model-stride.md) · [OWASP Audit](docs/security/02-owasp-api-top10-audit.md) · [Telemetry](docs/observability/01-structured-logging-telemetry.md) | STRIDE analysis, OWASP API Top 10 compliance, JSON structured logging |
+| **Security & SRE** | [Threat Model](docs/security/01-threat-model-stride.md) · [OWASP Audit](docs/security/02-owasp-api-top10-audit.md) · [Sanitization Pipeline](docs/security/04-input-validation-and-sanitization-pipeline.md) · [Telemetry](docs/observability/01-structured-logging-telemetry.md) | STRIDE analysis, OWASP API Top 10, 7-stage input sanitization, JSON structured logging |
 | **Resilience** | [Bulkhead Pattern](docs/resilience/01-fault-tolerance-bulkhead.md) · [Timeouts](docs/resilience/02-timeout-and-retry-policy.md) · [Error Catalog](docs/resilience/03-error-catalogue-degradation.md) | Fault boundaries, dual-tier SLA timeouts, RFC 7807 error taxonomy |
 | **Quality & QA** | [Test Strategy](docs/testing/01-test-strategy-and-pyramid.md) · [Test Catalog](docs/testing/02-test-cases-catalog.md) · [Performance](docs/testing/03-performance-load-testing.md) | Test pyramid, Triad test cases (Positive, Negative, Boundary), k6 benchmarks |
 | **Modeling** | [Complete 13-Diagram UML Suite](uml/) | Structural (Class, Package, Component, Deployment) and Behavioral (Sequence, State, Activity) |

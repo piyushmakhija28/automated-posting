@@ -563,6 +563,54 @@ paths:
                     invalid_params:
                       - name: "message"
                         reason: "Field required"
+                trojan_source_bidi_override:
+                  summary: TC-NEG-09 Trojan Source bidirectional control characters detected
+                  value:
+                    type: "https://dxora.com/errors/malicious-control-chars"
+                    title: "Prohibited Bidirectional Control Characters"
+                    status: 422
+                    detail: "Bidirectional control characters (Trojan Source CVE-2021-42574) are strictly prohibited."
+                    instance: "/posting"
+                    code: "ERR_MALICIOUS_CONTROL_CHARS"
+                    invalid_params:
+                      - name: "message"
+                        reason: "Contains forbidden Unicode codepoint U+202E"
+                ssrf_loopback_prohibited:
+                  summary: TC-NEG-10 CTA URL targeting local loopback or private network
+                  value:
+                    type: "https://dxora.com/errors/ssrf-prohibited"
+                    title: "Prohibited Destination Hostname"
+                    status: 422
+                    detail: "Destination hostname '127.0.0.1' points to an internal/loopback network, violating SSRF protection policy."
+                    instance: "/posting"
+                    code: "ERR_SSRF_PROHIBITED"
+                    invalid_params:
+                      - name: "message"
+                        reason: "Host '127.0.0.1' is in prohibited loopback range"
+                ssrf_cloud_metadata_blocked:
+                  summary: TC-NEG-11 CTA URL targeting cloud instance metadata service
+                  value:
+                    type: "https://dxora.com/errors/ssrf-prohibited"
+                    title: "Cloud Metadata Endpoint Blocked"
+                    status: 422
+                    detail: "Destination IP '169.254.169.254' points to link-local cloud metadata service, violating SSRF protection policy."
+                    instance: "/posting"
+                    code: "ERR_SSRF_PROHIBITED"
+                    invalid_params:
+                      - name: "message"
+                        reason: "Host '169.254.169.254' is in prohibited link-local range"
+                prohibited_internal_port:
+                  summary: TC-NEG-12 CTA URL targeting prohibited internal management port
+                  value:
+                    type: "https://dxora.com/errors/prohibited-port"
+                    title: "Prohibited Destination Port"
+                    status: 422
+                    detail: "Destination port 22 is blocked for security reasons."
+                    instance: "/posting"
+                    code: "ERR_PROHIBITED_PORT"
+                    invalid_params:
+                      - name: "message"
+                        reason: "Port 22 is in disallowed service port list"
         '429':
           description: Too Many Requests — Service ingress rate limit triggered
           headers:
@@ -830,6 +878,9 @@ components:
             - ERR_EMPTY_MESSAGE
             - ERR_MISSING_FIELD
             - ERR_MALFORMED_JSON
+            - ERR_MALICIOUS_CONTROL_CHARS
+            - ERR_SSRF_PROHIBITED
+            - ERR_PROHIBITED_PORT
             - ERR_RATE_LIMITED
             - ERR_GATEWAY_TIMEOUT
             - ERR_INTERNAL_SERVER

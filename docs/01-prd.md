@@ -54,6 +54,8 @@ The **Automated Multi-Platform Posting Engine** is an enterprise-grade microserv
 | **FR-013** | Granular Adapter Timeouts | Enforce an 8.0-second timeout per adapter via `asyncio.wait_for`. Return `status: "failed"` with timeout diagnosis upon breach. | High (WSJF: 18) | Must-Be | ISSUE-005 |
 | **FR-014** | Rate Limit Interception | Detect HTTP 429 status codes; parse `Retry-After` if present; return informative error without crashing. | Medium (WSJF: 14) | Attractive | ISSUE-008 |
 | **FR-015** | Unified Response Telemetry | Return structured JSON with top-level summary counts and typed array of platform outcomes with localized timestamps. | High (WSJF: 19) | Must-Be | — |
+| **FR-016** | Ingress Input Sanitization | Strip zero-width Unicode characters, normalize text via NFKC, and reject Trojan Source bidirectional override characters (`\u202A`–`\u202E`) and null bytes (`\x00`). | High (WSJF: 19) | Must-Be | DOC-SEC-04 |
+| **FR-017** | SSRF & Hostname Threat Defense | Screen extracted CTA URL against loopback (`localhost`, `127.0.0.1`), RFC 1918 private subnets, cloud metadata (`169.254.169.254`), and prohibited internal ports (22, 25, 3306, 5432, 6379). | High (WSJF: 19) | Must-Be | DOC-SEC-04 |
 
 ---
 

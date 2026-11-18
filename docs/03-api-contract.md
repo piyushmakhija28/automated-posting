@@ -43,10 +43,17 @@
 }
 ```
 
-#### Field Constraints:
+#### Field Constraints & Ingress Sanitization Pipeline:
 | Attribute | Type | Constraints | Description |
 |---|---|---|---|
 | `message` | `string` | $\text{min\_length}=1$, $\text{max\_length}=200$ | The broadcast copy. Must contain exactly 1 valid HTTP/HTTPS URL. |
+
+##### Ingress Sanitization Invariants:
+1. **BOM & Zero-Width Stripping:** UTF-8 BOM (`\uFEFF`) and zero-width spaces (`\u200B`–`\u200D`) are stripped before length evaluation.
+2. **Unicode Normalization:** Normalized to canonical NFKC format (`unicodedata.normalize('NFKC', ...)`).
+3. **Trojan Source Defense:** Bidirectional override characters (`\u202A`–`\u202E`, `\u2066`–`\u2069`) and null bytes (`\x00`) trigger immediate rejection (`ERR_MALICIOUS_CONTROL_CHARS`).
+4. **URL Boundary Normalization:** Cleanly strips trailing punctuation (`.,;:!?)'"`) and validates strict `http://` or `https://` scheme.
+5. **SSRF & Threat Hostname Screening:** Rejects loopback (`localhost`, `127.0.0.1`), RFC 1918 private subnets, cloud metadata IPs (`169.254.169.254`), and dangerous ports (`22, 25, 3306, 5432, 6379`) with `ERR_SSRF_PROHIBITED`.
 
 ---
 

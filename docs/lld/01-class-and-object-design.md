@@ -147,7 +147,7 @@ class PlatformResult(BaseModel):
     error: Optional[str] = Field(None, description="Error diagnostics if failed")
 
 class PostRequest(BaseModel):
-    """Ingress request body for POST /posting."""
+    """Ingress request body with multi-stage sanitization pipeline."""
     model_config = ConfigDict(str_strip_whitespace=True)
 
     message: str = Field(
@@ -157,25 +157,69 @@ class PostRequest(BaseModel):
         description="Broadcast message text (max 200 chars) containing exactly one CTA URL."
     )
 
-    @field_validator("message")
+    @field_validator("message", mode="before")
     @classmethod
-    def validate_content_and_url(cls, v: str) -> str:
+    def sanitize_raw_input(cls, v: str) -> str:
+        """Stage 2, 3, 4: Strip zero-width, normalize NFKC, reject Trojan Source & control chars."""
+        import re, unicodedata
+        if not isinstance(v, str):
+            raise ValueError("Message must be a valid string.")
+        
+        # Strip zero-width chars and normalize to NFKC
+        cleaned = re.sub(r"[\uFEFF\u200B-\u200D\u2060\u180E]", "", v)
+        cleaned = unicodedata.normalize("NFKC", cleaned)
+        
+        # Reject Trojan Source (CVE-2021-42574) and control characters
+        if re.search(r"[\u202A-\u202E\u2066-\u2069]", cleaned):
+            raise ValueError("Bidirectional control characters (Trojan Source) are strictly prohibited.")
+        if "\x00" in cleaned or re.search(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", cleaned):
+            raise ValueError("Non-printable control characters are strictly prohibited.")
+            
+        cleaned = re.sub(r"[ \t]+", " ", cleaned).strip()
+        if not cleaned:
+            raise ValueError("Message cannot be empty or contain only whitespace.")
+        return cleaned
+
+    @field_validator("message", mode="after")
+    @classmethod
+    def validate_invariants_and_ssrf(cls, v: str) -> str:
+        """Stage 5, 6, 7: Length verification, URL extraction, and SSRF threat screening."""
+        import re, ipaddress
+        from urllib.parse import urlsplit
+
         if len(v) > 200:
             raise ValueError(f"Message length ({len(v)} chars) exceeds maximum allowed limit of 200 characters.")
         
-        # Regex extraction
-        matches = re.findall(r"https?://[^\s]+", v)
-        cleaned = [m.rstrip(".,;:!?)'") for m in matches]
+        # Regex extraction with trailing punctuation removal
+        matches = re.findall(r"(https?://[^\s]+)", v)
+        cleaned = [re.sub(r"[.,;:!?)’\"']+$", "", m) for m in matches]
         
         if len(cleaned) == 0:
             raise ValueError("Message must contain exactly one valid CTA URL (http:// or https://). None found.")
         if len(cleaned) > 1:
             raise ValueError(f"Message contains {len(cleaned)} URLs. Exactly one CTA URL is permitted.")
             
-        parsed = urlparse(cleaned[0])
-        if not parsed.scheme or not parsed.netloc or "." not in parsed.netloc:
-            raise ValueError(f"Extracted CTA URL '{cleaned[0]}' is syntactically invalid.")
-            
+        cta_url = cleaned[0]
+        parsed = urlsplit(cta_url)
+        hostname = (parsed.hostname or "").lower()
+
+        if not hostname or "." not in hostname:
+            raise ValueError(f"Extracted CTA URL '{cta_url}' has an invalid or bare hostname.")
+
+        # SSRF checks: loopback domains, RFC 1918 subnets, cloud metadata IPs, and prohibited ports
+        if hostname in {"localhost", "localhost.localdomain"} or hostname.endswith(".localhost"):
+            raise ValueError(f"Prohibited destination hostname: '{hostname}' violates SSRF protection policy.")
+
+        try:
+            ip = ipaddress.ip_address(hostname)
+            if ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_reserved:
+                raise ValueError(f"Prohibited destination IP: '{hostname}' points to an internal/private network.")
+        except ValueError:
+            pass  # FQDN hostname
+
+        if parsed.port and parsed.port in {22, 25, 3306, 5432, 6379, 27017}:
+            raise ValueError(f"Prohibited port: Port {parsed.port} is blocked for security reasons.")
+
         return v
 
 class PostResponse(BaseModel):

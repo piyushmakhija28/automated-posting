@@ -33,6 +33,10 @@
 | **TC-NEG-06** | Bare Domain Without Schema | Message: `"Explore dxora.com for details"`. | Rejected by validator (regex requires `http://` or `https://`). | `status_code == 422`, `"0 URLs found"`. |
 | **TC-NEG-07** | Non-JSON Payload | Raw text or corrupted binary body sent with `Content-Type: application/json`. | FastAPI ingress parser rejects. | `status_code == 422`. |
 | **TC-NEG-08** | Missing Required Field | Request body `{ "text": "hello https://dxora.com" }` (missing `message`). | Pydantic validation rejects missing required field. | `status_code == 422`, `loc == ["body", "message"]`. |
+| **TC-NEG-09** | Trojan Source Bidi Injection | Message with Bidi override character `\u202E` (CVE-2021-42574 visual spoofing). | Rejected at pre-validation stage before URL extraction. | `status_code == 422`, `detail[0]["msg"]` contains `"Bidirectional control characters (Trojan Source) are strictly prohibited"`. |
+| **TC-NEG-10** | SSRF Loopback Destination | Message containing CTA URL `http://127.0.0.1:8080/status` or `http://localhost/admin`. | Stage 7 SSRF screening intercepts private/loopback destination. | `status_code == 422`, `detail[0]["msg"]` contains `"violates SSRF protection policy"`. |
+| **TC-NEG-11** | SSRF Cloud Metadata IP | Message containing CTA URL `http://169.254.169.254/latest/meta-data/`. | Stage 7 SSRF screening detects link-local metadata IP. | `status_code == 422`, `detail[0]["msg"]` contains `"points to an internal/private network"`. |
+| **TC-NEG-12** | Prohibited Port Injection | Message containing CTA URL `https://dxora.com:22/ssh` or port `3306`. | Stage 7 screening detects prohibited database/management port. | `status_code == 422`, `detail[0]["msg"]` contains `"Prohibited port"`. |
 
 ---
 
@@ -50,3 +54,6 @@
 | **TC-EDG-08** | All 5 Platforms Fail | All 5 mock transports return HTTP 500 simultaneously. | Returns HTTP 200; `success == false`; all 5 results detailed with errors. | `status_code == 200`, `successful_posts == 0`, `failed_posts == 5`. |
 | **TC-EDG-09** | Log Scrubbing Verification | Execution triggers logging with mock token `"Bearer AQV123456789"`. | Log filter masks token in output stream. | Log stream contains `"Bearer ***REDACTED***"`, zero cleartext tokens. |
 | **TC-EDG-10** | Unconfigured Environment | Target platform has empty credentials (`None`). | Adapter reports `failed` without making network call. | Result has `error == "Platform credentials not configured in environment variables."`. |
+| **TC-EDG-11** | Zero-Width Space Stripping | Message padded with `\u200B` zero-width spaces to 205 chars (200 visible chars). | Stage 2 sanitizer strips zero-width spaces; message evaluated as 200 chars. | `status_code == 200`, `response.json()["success"] is True`. |
+| **TC-EDG-12** | Unicode NFKC Normalization | Message containing composite accented characters and Unicode ligatures. | Canonical NFKC normalization transforms characters into standard codepoints. | Normalized correctly, accepted without character distortion. |
+| **TC-EDG-13** | Multiple Internal Whitespace | Message with 4 spaces between words: `"Visit    our  site https://dxora.com"`. | Stage 5 collapses repeated spaces into single space. | Message cleaned cleanly, character budget optimized. |

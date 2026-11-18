@@ -39,6 +39,8 @@ This document provides bidirectional traceability linking:
 | **FR-014** | Rate limit detection | `app/platforms/base.py` | `handle_http_error()` | ISSUE-008 429 Retry-After | `test_rate_limit_interception` |
 | **FR-015** | Structured response payload | `app/schemas.py` | `PostResponse`, `PlatformResult` | Uniform API wrapper | `test_response_schema_conformance` |
 | **FR-016** | Health & readiness probes | `app/main.py` | `get_health()`, `get_ready()` | ISSUE-012 SRE keepalive | `test_health_and_ready_probes` |
+| **FR-017** | Ingress Input Sanitization | `app/schemas.py`, `app/utils/validators.py` | `sanitize_raw_input()` | Zero-width, NFKC, and Trojan Source Bidi stripping | `test_input_sanitization_pipeline` |
+| **FR-018** | SSRF & Threat Destination Screening | `app/schemas.py`, `app/utils/validators.py` | `validate_invariants_and_ssrf()` | Loopback, RFC 1918, metadata IP, and dangerous port blocking | `test_ssrf_prohibited_destinations` |
 | **NFR-001** | Latency SLA $\le 10.0$s | `app/services/posting_service.py` | Concurrent event loop scheduling | High-efficiency async client | `test_sla_conformance` |
 | **NFR-002** | $\ge 90\%$ test coverage | `tests/` test suite | Pytest test execution | Strict ISO 29119 test coverage standard | `pytest --cov=app` |
 | **NFR-003** | Zero credentials in logs | `app/utils/logger.py` | `SensitiveDataFilter` | ISSUE-009 Token scrubbing | `test_logger_redaction` |
