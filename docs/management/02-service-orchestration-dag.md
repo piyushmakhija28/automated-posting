@@ -115,3 +115,47 @@ graph TD
 2. **Gate 2 (Design to Security & Resilience):** STRIDE threat assessment, OWASP API Top 10 mitigation validation, and SRE logging governance approved.
 3. **Gate 3 (Implementation to Verification):** Complete decoupling of adapters via abstract base classes; zero shared mutable state.
 4. **Gate 4 (Release Readiness):** Triad test suite execution achieves $\ge 90\%$ line coverage with full mock isolation and no external network dependencies during automated runs.
+
+---
+
+## 4. Multi-Agent Orchestration Framework & Squad Governance
+
+The implementation phase is orchestrated as a **Multi-Agent Directed Acyclic Graph (DAG)** rooted in the **LangGraph Supervisor Pattern** (`claude-workflow-engine` SDLC framework). Rather than relying on a single generalist model, execution is delegated across specialized engineering agents from the **Claude Global Library**:
+
+```mermaid
+graph TD
+    Supervisor["orchestrator-agent<br/>(Master SDLC Coordinator)"]
+
+    subgraph SprintSquad ["Specialized Multi-Agent Delivery Squad"]
+        BackendDev["python-backend-engineer<br/>(FastAPI, Pydantic v2, Ports/Adapters, Concurrency)"]
+        SecAuditor["api-security-auditor<br/>(7-Stage Sanitizer, SSRF Defense, Token Redaction)"]
+        QATester["qa-testing-agent<br/>(Pytest Triad Suite, Mock Transport, 90% Coverage)"]
+        DevOpsEng["devops-engineer<br/>(Multi-Stage Docker, GitHub Actions CI/CD, Cloud)"]
+    end
+
+    Supervisor -->|Dispatches Feature Story| BackendDev
+    BackendDev -->|Artifact Review| SecAuditor
+    SecAuditor -->|Security Cleared| QATester
+    QATester -->|Verified & Tested| Supervisor
+    Supervisor -->|Release & Package| DevOpsEng
+    DevOpsEng -->|Deploys & Probes| Supervisor
+```
+
+### Squad Roster & Roles
+
+| Agent Name | Global Library Path | Core Discipline & Responsibility | Assigned Sprint Scope |
+|:---|:---|:---|:---|
+| **`orchestrator-agent`** | `agents/orchestrator-agent/` | **Squad Lead & State Manager:** Manages DAG transitions, sprint milestone boundaries, GitHub issue tracking, and quality gate evaluations. | Sprints 1 – 5 |
+| **`python-backend-engineer`** | `agents/python-backend-engineer/` | **Core Backend Specialist:** Implements Pydantic v2 forms, immutable DTOs, `BasePlatformAdapter`, `AdapterRegistry`, 5 concrete platform adapters, `PostingServiceImpl` bulkhead concurrency, and FastAPI ingress routers. | Sprints 1, 2, 3, 4 |
+| **`api-security-auditor`** | `agents/api-security-auditor/` | **Security & Hardening Lead:** Governs the 7-stage input sanitization engine, Trojan Source Bidi detection, SSRF filtering against private CIDRs, and `SensitiveDataFilter` secret masking in JSON telemetry. | Sprints 1, 2 |
+| **`qa-testing-agent`** | `agents/qa-testing-agent/` | **Quality Assurance Lead:** Designs and executes the 11-layer Triad automated test suite (`tests/test_*.py`), in-memory mock transports, and enforces the $\ge 90\%$ statement/branch coverage gate. | Sprints 1, 2, 3, 4 |
+| **`devops-engineer`** | `agents/devops-engineer/` | **Infrastructure & SRE Lead:** Authors the multi-stage non-root OCI Dockerfile, GitHub Actions CI/CD workflows, and conducts deployment smoke tests. | Sprint 5 |
+
+### Multi-Agent Execution Protocol
+
+For every sprint user story:
+1. **Dispatch:** `orchestrator-agent` activates `python-backend-engineer` with exact acceptance criteria from the GitHub issue.
+2. **Build:** `python-backend-engineer` implements target files following Level 2.2 Docstrings-Only convention and clean architecture.
+3. **Security Gate:** `api-security-auditor` reviews code for secret leakage, regex denial of service (ReDoS), and SSRF vulnerabilities.
+4. **Verification Gate:** `qa-testing-agent` writes and executes pytest Triad suites. If test coverage is $< 90\%$ or any test fails, control loops back to the builder for remediation.
+5. **Commit & Close:** Upon passing all gates, `orchestrator-agent` commits changes referencing the issue number (`feat: ... (#N)`) and closes the GitHub issue.
