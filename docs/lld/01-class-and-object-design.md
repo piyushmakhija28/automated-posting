@@ -67,14 +67,24 @@ classDiagram
     BasePlatform <|-- MastodonPlatform
     BasePlatform <|-- TelegramPlatform
 
+    class AdapterRegistry {
+        -_registry: dict[str, type[BasePlatform]]
+        +register(name: str, adapter_cls: type[BasePlatform]) void
+        +create_all(client: httpx.AsyncClient, settings: Settings) list[BasePlatform]
+    }
+
     class PostingService {
         -adapters: list[BasePlatform]
         +post_to_all(message: str, cta_url: str) PostResponse
         -_safe_execute(adapter: BasePlatform, message: str, cta_url: str) PlatformResult
     }
 
+    AdapterRegistry ..> BasePlatform : instantiates
     PostingService o-- BasePlatform : aggregates
 ```
+
+> **Design Pattern & SOLID Governance:** For comprehensive GoF patterns (Adapter, Factory, Bulkhead, Strategy, Orchestrator) and SOLID compliance verification, refer to [Level 2.5: Design Patterns, SOLID Principles & DSA Analysis](05-design-patterns-and-solid-principles.md).  
+> **Domain Exception Architecture:** For the two-tier domain exception tree and RFC 7807 problem details mapping, refer to [Level 2.6: Domain Exception Hierarchy & Error Handling](06-exception-hierarchy-and-error-handling.md).
 
 ---
 
