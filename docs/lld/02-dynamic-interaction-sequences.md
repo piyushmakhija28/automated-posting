@@ -129,3 +129,33 @@ sequenceDiagram
     FastAPI-->>Client: HTTP 422 Unprocessable Entity
     Note over Client: Execution ends in <5ms with zero external network overhead
 ```
+
+
+---
+
+## 4. Sequence 4: Ingress SSRF & Trojan Source Sanitization Interception
+
+Demonstrates how the 7-stage Ingress Sanitization pipeline intercepts malicious payloads (e.g. cloud metadata IP `http://169.254.169.254` or Trojan Source bidi override characters `\u202E`) and formats an RFC 7807 Problem Details response without invoking downstream adapters:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Attacker as Untrusted Inbound Client
+    participant Ingress as FastAPI Router
+    participant Sanitizer as Pydantic v2 Ingress Sanitizer
+    participant Handler as Global Exception Handler
+
+    Attacker->>Ingress: POST /posting { "message": "Explore http://169.254.169.254/latest/meta-data/" }
+    Ingress->>Sanitizer: sanitize_raw_input() & validate_invariants_and_ssrf()
+    
+    Sanitizer->>Sanitizer: Stage 2-3: Normalize Unicode to NFKC
+    Sanitizer->>Sanitizer: Stage 4: Verify absence of Trojan Source bidi chars
+    Sanitizer->>Sanitizer: Stage 6: Extract CTA URL -> http://169.254.169.254
+    Sanitizer->>Sanitizer: Stage 7: Evaluate destination IP against Link-Local Subnet
+    
+    note over Sanitizer: IP 169.254.169.254 is Link-Local Cloud Metadata!
+    Sanitizer-->>Ingress: Raise SSRFProhibitedException("Destination IP is in prohibited metadata range")
+    Ingress->>Handler: Catch SSRFProhibitedException
+    Handler-->>Attacker: HTTP 422 (RFC 7807: ERR_SSRF_PROHIBITED)
+    note over Attacker: Terminated in <2ms with zero outbound HTTP dispatch
+```

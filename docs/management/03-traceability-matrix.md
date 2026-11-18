@@ -31,6 +31,10 @@ This matrix establishes complete, unbroken forward and backward traceability acr
 | Rate limiting detection (429) | FR-014 | FR-014 | `handle_http_error` Routine | ADR-004 | `app/platforms/base.py` | `test_rate_limit_interception` |
 | Structured response JSON | FR-015 | FR-015 | `PostResponse` Schema | ADR-007 | `app/schemas.py` | `test_response_schema_conformance` |
 | Liveness and Readiness probes | FR-016 | FR-016 | SRE Health Controller | ADR-008 | `app/main.py` | `test_health_and_ready_probes` |
+| 7-Stage Input Sanitization (BOM, NFKC, Bidi) | FR-017 | FR-017 | `PostRequest.sanitize_raw_input` | DOC-SEC-04 | `app/schemas.py`, `app/utils/validators.py` | `test_input_sanitization_pipeline`, `test_trojan_source_bidi_rejection` |
+| SSRF & Hostname Threat Defense | FR-018 | FR-018 | `PostRequest.validate_invariants_and_ssrf` | DOC-SEC-04 | `app/utils/validators.py` | `test_ssrf_prohibited_destinations`, `test_prohibited_internal_ports` |
+| Adapter Factory & Dynamic Discovery | LLD-05 | LLD-05 | `AdapterRegistry` Factory | ADR-005 | `app/platforms/registry.py` | `test_adapter_registry_discovery` |
+| Two-Level Domain Exception Hierarchy | LLD-06 | LLD-06 | `PostingAppException` & Handlers | ADR-007 | `app/exceptions.py` | `test_domain_exception_rfc7807_mapping` |
 | Docker Containerization | NFR-006 | NFR-006 | Multi-Stage OCI Image | ADR-008 | `Dockerfile` | Container build test |
 | Zero Secrets in Logs | NFR-003 | NFR-003 | `SensitiveDataFilter` Logger | ADR-006 | `app/utils/logger.py` | `test_logger_redaction` |
 | $\ge 90\%$ Code Coverage Gate | NFR-002 | NFR-002 | Pytest Test Harness | ADR-002 | `tests/test_posting.py` | `pytest --cov=app` |
