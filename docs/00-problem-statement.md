@@ -5,7 +5,7 @@
 **Author:** Principal Software Architect
 **Reviewer:** Staff Backend Engineering Lead
 **Status:** APPROVED  
-**Standard:** Level 2.3 Documentation Governance (`rules/11-documentation-files.md`)
+**Standard:** Level 2.3 Documentation Governance (ISO/IEC/IEEE 29148 Standard)
 
 ---
 

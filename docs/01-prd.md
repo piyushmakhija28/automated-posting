@@ -6,7 +6,7 @@
 **Reviewer:** Staff Backend Engineering Lead
 **Approver:** Technical Architecture Board
 **Version:** 1.0.0 | **Date:** 2026-11-18  
-**Standards:** IEEE 830, ISO/IEC/IEEE 29148, `rules/11-documentation-files.md`
+**Standards:** IEEE 830, ISO/IEC/IEEE 29148
 
 ---
 

@@ -6,7 +6,7 @@
 **Reviewer:** Staff Backend Engineering Lead
 **Approver:** Technical Architecture Board
 **Status:** APPROVED  
-**Standard:** C4 Architectural Model, ISO/IEC/IEEE 42010, `rules/11-documentation-files.md`
+**Standard:** C4 Architectural Model, ISO/IEC/IEEE 42010
 
 ---
 

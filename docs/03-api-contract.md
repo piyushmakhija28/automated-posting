@@ -5,7 +5,7 @@
 **Author:** Principal Software Architect
 **Reviewer:** Staff Backend Engineering Lead
 **Status:** APPROVED  
-**Standard:** OpenAPI 3.1.0, RFC 7807 (Problem Details), `rules/26-openapi-documentation.md`
+**Standard:** OpenAPI 3.1.0, RFC 7807 (Problem Details)
 
 ---
 

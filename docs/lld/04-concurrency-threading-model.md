@@ -5,7 +5,7 @@
 **Author:** Principal Software Architect
 **Reviewer:** Staff Backend Engineering Lead
 **Status:** APPROVED  
-**Standard:** Reactive Systems, Asyncio Event Loop Governance, `rules/11-documentation-files.md`
+**Standard:** Reactive Systems, Asyncio Event Loop Governance
 
 ---
 

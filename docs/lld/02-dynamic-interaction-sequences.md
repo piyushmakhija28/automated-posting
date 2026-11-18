@@ -5,7 +5,7 @@
 **Author:** Principal Software Architect
 **Reviewer:** Staff Backend Engineering Lead
 **Status:** APPROVED  
-**Standard:** UML 2.5 Sequence Specification, `rules/11-documentation-files.md`
+**Standard:** UML 2.5 Sequence Specification
 
 ---
 
