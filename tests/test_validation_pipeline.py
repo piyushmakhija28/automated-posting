@@ -78,6 +78,16 @@ class TestValidationPipelinePositive:
         assert form.extracted_url == "https://example.com/test"
         assert not hasattr(form, "unknown_admin_field")
 
+    def test_allowed_standard_ports_accepted(self) -> None:
+        """Verifies URLs with allowed standard and application ports are accepted."""
+        text_https = "Secure portal link: https://example.com:443/dashboard"
+        form_https = PostingForm(message=text_https)
+        assert form_https.extracted_url == "https://example.com:443/dashboard"
+
+        text_app = "Application webhook: http://example.com:8080/events"
+        form_app = PostingForm(message=text_app)
+        assert form_app.extracted_url == "http://example.com:8080/events"
+
 
 class TestValidationPipelineNegative:
     """Negative test scenarios for syntax, invariant, and constraint violations."""
@@ -140,6 +150,13 @@ class TestValidationPipelineNegative:
         with pytest.raises(UrlExtractionError) as exc_info:
             PostingForm(message=text)
         assert exc_info.value.count == 0
+
+    def test_invalid_port_out_of_range_rejected(self) -> None:
+        """Verifies URLs with port numbers outside the valid 0-65535 range are rejected."""
+        text = "Check invalid port service: https://example.com:999999/test"
+        with pytest.raises(MessageValidationError) as exc_info:
+            PostingForm(message=text)
+        assert exc_info.value.error_code == ErrorCodeConstants.ERR_INVALID_URL_SCHEME
 
 
 class TestValidationPipelineSecurityEdgeCases:
@@ -210,6 +227,29 @@ class TestValidationPipelineSecurityEdgeCases:
         with pytest.raises(SecurityThreatError) as exc_info:
             PostingForm(message=text)
         assert exc_info.value.threat_type == "PROMPT_INJECTION"
+
+    def test_ssrf_prohibited_port_ssh_blocked(self) -> None:
+        """Verifies destination port 22 (SSH) is blocked per TC-NEG-12 and openapi.yaml."""
+        text = "Access secure server: https://dxora.com:22/ssh"
+        with pytest.raises(SecurityThreatError) as exc_info:
+            PostingForm(message=text)
+        assert exc_info.value.threat_type == "PROHIBITED_PORT"
+        assert exc_info.value.error_code == ErrorCodeConstants.ERR_PROHIBITED_PORT
+        assert "Destination port 22 is blocked for security reasons." in exc_info.value.message
+
+    def test_ssrf_prohibited_port_database_blocked(self) -> None:
+        """Verifies destination database ports (3306 MySQL, 6379 Redis) are blocked per TC-NEG-12."""
+        text_mysql = "Connect to database: http://example.com:3306/db"
+        with pytest.raises(SecurityThreatError) as exc_mysql:
+            PostingForm(message=text_mysql)
+        assert exc_mysql.value.error_code == ErrorCodeConstants.ERR_PROHIBITED_PORT
+        assert "Destination port 3306 is blocked" in exc_mysql.value.message
+
+        text_redis = "Direct cache access: http://example.com:6379/data"
+        with pytest.raises(SecurityThreatError) as exc_redis:
+            PostingForm(message=text_redis)
+        assert exc_redis.value.error_code == ErrorCodeConstants.ERR_PROHIBITED_PORT
+        assert "Destination port 6379 is blocked" in exc_redis.value.message
 
 
 class TestLoggingAndExceptions:

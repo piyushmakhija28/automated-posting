@@ -7,7 +7,11 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
-from app.core.constants import ErrorCodeConstants, ValidationMessageConstants
+from app.core.constants import (
+    ErrorCodeConstants,
+    SecurityConstants,
+    ValidationMessageConstants,
+)
 from app.core.exceptions import MessageValidationError, SecurityThreatError, UrlExtractionError
 
 
@@ -182,6 +186,20 @@ class PostingForm(BaseModel):
                 )
         except ValueError:
             pass
+
+        try:
+            port = parsed.port
+            if port is not None and port in SecurityConstants.DISALLOWED_PORTS:
+                raise SecurityThreatError(
+                    ValidationMessageConstants.MSG_URL_PROHIBITED_PORT.format(port=port),
+                    threat_type="PROHIBITED_PORT",
+                    error_code=ErrorCodeConstants.ERR_PROHIBITED_PORT,
+                )
+        except ValueError as err:
+            raise MessageValidationError(
+                ValidationMessageConstants.MSG_URL_INVALID_SCHEME,
+                error_code=ErrorCodeConstants.ERR_INVALID_URL_SCHEME,
+            ) from err
 
         # Stage 6: Threat & Prompt Injection Screening
         injection_pattern = re.compile(

@@ -1,10 +1,12 @@
 """Centralized typed constants for the automated-posting microservice.
 
-Organized into four dedicated classes:
+Organized into dedicated classes:
 - ServiceMessageConstants: Success, partial success, and failure messages
 - ValidationMessageConstants: Ingress validation violation messages
 - ApiConstants: Route paths, HTTP headers, and system identifiers
 - PlatformConstants: External platform identifiers, timeouts, and SLA limits
+- ErrorCodeConstants: Standardized machine-readable RFC 7807 error codes
+- SecurityConstants: Security thresholds, disallowed ports, and threat policies
 """
 
 from typing import Final
@@ -27,6 +29,9 @@ class ValidationMessageConstants:
     )
     MSG_SUSPICIOUS_PAYLOAD: Final[str] = (
         "Message contains suspicious control or evasion characters."
+    )
+    MSG_URL_PROHIBITED_PORT: Final[str] = (
+        "Destination port {port} is blocked for security reasons."
     )
 
 
@@ -107,3 +112,11 @@ class ErrorCodeConstants:
     ERR_GATEWAY_TIMEOUT: Final[str] = "ERR_GATEWAY_TIMEOUT"
     ERR_INTERNAL_SERVER: Final[str] = "ERR_INTERNAL_SERVER"
     ERR_PROMPT_INJECTION: Final[str] = "ERR_PROMPT_INJECTION"
+
+
+class SecurityConstants:
+    """Security boundaries, prohibited ports, and threat detection policies."""
+
+    DISALLOWED_PORTS: Final[frozenset[int]] = frozenset(
+        {22, 25, 3306, 5432, 6379, 27017, 9200}
+    )
