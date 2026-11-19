@@ -94,6 +94,11 @@ class PlatformConstants:
     STATUS_FAILED: Final[Literal["failed"]] = "failed"
     STATUS_SKIPPED: Final[Literal["skipped"]] = "skipped"
 
+    URL_LINKEDIN_UGC_POSTS: Final[str] = "https://api.linkedin.com/v2/ugcPosts"
+    URL_LINKEDIN_FEED_UPDATE: Final[str] = "https://www.linkedin.com/feed/update/{id}"
+    HEADER_RESTLI_PROTOCOL_VERSION: Final[str] = "X-Restli-Protocol-Version"
+    RESTLI_PROTOCOL_VERSION_VALUE: Final[str] = "2.0.0"
+
 
 class ErrorCodeConstants:
     """Standardized machine-readable error codes matching openapi.yaml RFC 7807 specification."""

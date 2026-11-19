@@ -51,10 +51,12 @@ class TestBasePlatformAdapterPositive:
 
     @pytest.fixture(autouse=True)
     def setup_teardown(self) -> Any:
-        """Clears class-level adapter registry before and after each test."""
+        """Clears class-level adapter registry before and after each test, restoring baseline state."""
+        saved = dict(AdapterRegistry._registry)
         AdapterRegistry.clear()
         yield
-        AdapterRegistry.clear()
+        AdapterRegistry._registry.clear()
+        AdapterRegistry._registry.update(saved)
 
     @pytest.mark.asyncio
     async def test_concrete_adapter_initialization_and_properties(self) -> None:
@@ -212,10 +214,12 @@ class TestAdapterRegistry:
 
     @pytest.fixture(autouse=True)
     def clean_registry(self) -> Any:
-        """Ensures isolated class-level registry state before and after each test."""
+        """Ensures isolated class-level registry state for test, restoring baseline afterwards."""
+        saved = dict(AdapterRegistry._registry)
         AdapterRegistry.clear()
         yield
-        AdapterRegistry.clear()
+        AdapterRegistry._registry.clear()
+        AdapterRegistry._registry.update(saved)
 
     def test_decorator_registration(self) -> None:
         """Verifies @AdapterRegistry.register properly binds adapter class."""
