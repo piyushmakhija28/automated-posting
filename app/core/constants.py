@@ -111,6 +111,9 @@ class PlatformConstants:
     PATH_MASTODON_STATUSES: Final[str] = "/api/v1/statuses"
     HEADER_IDEMPOTENCY_KEY: Final[str] = "Idempotency-Key"
 
+    URL_TELEGRAM_SEND_MESSAGE: Final[str] = "https://api.telegram.org/bot{token}/sendMessage"
+    URL_TELEGRAM_PUBLIC_POST: Final[str] = "https://t.me/{channel}/{message_id}"
+
 
 class ErrorCodeConstants:
     """Standardized machine-readable error codes matching openapi.yaml RFC 7807 specification."""

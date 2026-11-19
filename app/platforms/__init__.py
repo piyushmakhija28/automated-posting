@@ -6,6 +6,7 @@ from app.platforms.hashnode import HashnodeAdapter
 from app.platforms.linkedin import LinkedInAdapter
 from app.platforms.mastodon import MastodonAdapter
 from app.platforms.registry import AdapterRegistry
+from app.platforms.telegram import TelegramAdapter
 
 __all__ = [
     "BasePlatformAdapter",
@@ -14,4 +15,5 @@ __all__ = [
     "DevToAdapter",
     "HashnodeAdapter",
     "MastodonAdapter",
+    "TelegramAdapter",
 ]
