@@ -50,7 +50,9 @@ class TestBootstrapLifecycle:
 
     def test_dependency_provider_raises_not_implemented_when_unbound(self) -> None:
         """Verifies get_posting_service provider raises NotImplementedError if called directly."""
-        with pytest.raises(NotImplementedError, match="Dependency injection provider must be bound"):
+        with pytest.raises(
+            NotImplementedError, match="Dependency injection provider must be bound"
+        ):
             get_posting_service()
 
     def test_client_executes_with_lifespan_context(self) -> None:

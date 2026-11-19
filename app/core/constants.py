@@ -30,9 +30,7 @@ class ValidationMessageConstants:
     MSG_SUSPICIOUS_PAYLOAD: Final[str] = (
         "Message contains suspicious control or evasion characters."
     )
-    MSG_URL_PROHIBITED_PORT: Final[str] = (
-        "Destination port {port} is blocked for security reasons."
-    )
+    MSG_URL_PROHIBITED_PORT: Final[str] = "Destination port {port} is blocked for security reasons."
 
 
 class ServiceMessageConstants:
@@ -137,6 +135,4 @@ class ErrorCodeConstants:
 class SecurityConstants:
     """Security boundaries, prohibited ports, and threat detection policies."""
 
-    DISALLOWED_PORTS: Final[frozenset[int]] = frozenset(
-        {22, 25, 3306, 5432, 6379, 27017, 9200}
-    )
+    DISALLOWED_PORTS: Final[frozenset[int]] = frozenset({22, 25, 3306, 5432, 6379, 27017, 9200})

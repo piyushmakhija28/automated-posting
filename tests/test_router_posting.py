@@ -220,7 +220,7 @@ class TestPostingRouterTriad:
         self, client: TestClient
     ) -> None:
         """Verifies TC-NEG-09: Bidi override characters trigger HTTP 422 with ERR_MALICIOUS_CONTROL_CHARS."""
-        payload = {"message": "Test \u202E override https://techdeveloper.io"}
+        payload = {"message": "Test \u202e override https://techdeveloper.io"}
         response = client.post(ApiConstants.ENDPOINT_POSTING, json=payload)
 
         assert response.status_code == 422
@@ -283,7 +283,9 @@ class TestPostingRouterTriad:
         self, client: TestClient, mock_posting_service: AsyncMock
     ) -> None:
         """Verifies uncaught runtime exceptions return HTTP 500 with ERR_INTERNAL_SERVER."""
-        mock_posting_service.broadcast.side_effect = RuntimeError("Fatal memory corrupt simulation.")
+        mock_posting_service.broadcast.side_effect = RuntimeError(
+            "Fatal memory corrupt simulation."
+        )
 
         payload = {"message": "Valid broadcast payload! https://techdeveloper.io"}
         response = client.post(ApiConstants.ENDPOINT_POSTING, json=payload)
@@ -298,12 +300,24 @@ class TestPostingRouterTriad:
     @pytest.mark.parametrize(
         ("error_msg", "expected_code"),
         [
-            ("Character count 201 exceeds limit of 200", ErrorCodeConstants.ERR_CHAR_LIMIT_EXCEEDED),
-            ("Message must contain exactly one valid CTA URL (found 0)", ErrorCodeConstants.ERR_MISSING_CTA_URL),
+            (
+                "Character count 201 exceeds limit of 200",
+                ErrorCodeConstants.ERR_CHAR_LIMIT_EXCEEDED,
+            ),
+            (
+                "Message must contain exactly one valid CTA URL (found 0)",
+                ErrorCodeConstants.ERR_MISSING_CTA_URL,
+            ),
             ("Message contains multiple URLs (found 2)", ErrorCodeConstants.ERR_MULTIPLE_CTA_URLS),
-            ("Missing protocol scheme http:// or https://", ErrorCodeConstants.ERR_INVALID_URL_SCHEME),
+            (
+                "Missing protocol scheme http:// or https://",
+                ErrorCodeConstants.ERR_INVALID_URL_SCHEME,
+            ),
             ("Message cannot be empty or whitespace", ErrorCodeConstants.ERR_EMPTY_MESSAGE),
-            ("Contains prohibited bidirectional control characters", ErrorCodeConstants.ERR_MALICIOUS_CONTROL_CHARS),
+            (
+                "Contains prohibited bidirectional control characters",
+                ErrorCodeConstants.ERR_MALICIOUS_CONTROL_CHARS,
+            ),
             ("SSRF to private network blocked", ErrorCodeConstants.ERR_SSRF_PROHIBITED),
             ("Prohibited port 22 blocked", ErrorCodeConstants.ERR_PROHIBITED_PORT),
             ("Unknown generic violation", "ERR_VALIDATION_FAILED"),
@@ -314,8 +328,12 @@ class TestPostingRouterTriad:
     ) -> None:
         """Verifies validation_exception_handler maps Pydantic validation errors to exact RFC 7807 codes."""
         handler = app_with_mock_service.exception_handlers[RequestValidationError]
-        request = Request(scope={"type": "http", "method": "POST", "path": "/posting", "headers": []})
-        exc = RequestValidationError([{"loc": ("body", "message"), "msg": error_msg, "type": "value_error"}])
+        request = Request(
+            scope={"type": "http", "method": "POST", "path": "/posting", "headers": []}
+        )
+        exc = RequestValidationError(
+            [{"loc": ("body", "message"), "msg": error_msg, "type": "value_error"}]
+        )
         response = await handler(request, exc)
         assert response.status_code == 422
         assert response.headers["Content-Type"] == "application/problem+json"

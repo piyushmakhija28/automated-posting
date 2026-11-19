@@ -60,10 +60,7 @@ class TestLinkedInAdapterPositive:
 
         assert payload["author"] == "urn:li:person:12345"
         assert payload["lifecycleState"] == "PUBLISHED"
-        assert (
-            payload["visibility"]["com.linkedin.ugc.MemberNetworkVisibility"]
-            == "PUBLIC"
-        )
+        assert payload["visibility"]["com.linkedin.ugc.MemberNetworkVisibility"] == "PUBLIC"
 
         share_content = payload["specificContent"]["com.linkedin.ugc.ShareContent"]
         assert share_content["shareCommentary"]["text"] == "Check out our new release!"
@@ -101,8 +98,7 @@ class TestLinkedInAdapterPositive:
             assert result.status == PlatformConstants.STATUS_SUCCESS
             assert result.post_id == "urn:li:share:7123456789"
             assert (
-                result.posted_url
-                == "https://www.linkedin.com/feed/update/urn:li:share:7123456789"
+                result.posted_url == "https://www.linkedin.com/feed/update/urn:li:share:7123456789"
             )
             assert result.public_access is True
             assert result.error is None
@@ -134,8 +130,7 @@ class TestLinkedInAdapterPositive:
             assert result.status == PlatformConstants.STATUS_SUCCESS
             assert result.post_id == "urn:li:ugcPost:987654321"
             assert (
-                result.posted_url
-                == "https://www.linkedin.com/feed/update/urn:li:ugcPost:987654321"
+                result.posted_url == "https://www.linkedin.com/feed/update/urn:li:ugcPost:987654321"
             )
 
 
@@ -307,10 +302,7 @@ class TestLinkedInAdapterEdgeCases:
 
             assert result.status == PlatformConstants.STATUS_SUCCESS
             assert result.post_id == "unknown"
-            assert (
-                result.posted_url
-                == "https://www.linkedin.com/feed/update/unknown"
-            )
+            assert result.posted_url == "https://www.linkedin.com/feed/update/unknown"
 
     @pytest.mark.asyncio
     async def test_extract_post_id_handles_invalid_json(self) -> None:

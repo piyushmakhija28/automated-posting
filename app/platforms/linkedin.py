@@ -169,9 +169,7 @@ class LinkedInAdapter(BasePlatformAdapter):
             if response.status_code == 401:
                 error = "Authentication failed: invalid or expired LinkedIn access token."
             elif response.status_code == 403:
-                error = (
-                    "Permission denied: insufficient LinkedIn OAuth scopes (w_member_social required)."
-                )
+                error = "Permission denied: insufficient LinkedIn OAuth scopes (w_member_social required)."
             elif response.status_code == 429:
                 error = "Rate limit exceeded on LinkedIn UGC Posts API."
             else:

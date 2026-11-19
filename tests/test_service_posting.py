@@ -104,9 +104,7 @@ class TestPostingServicePositive:
             DummyAdapter(name="p3", delay_seconds=0.1),
         ]
         service = PostingServiceImpl(adapters=adapters)
-        form = PostingForm(
-            message="Concurrent test message: https://example.com/benchmark"
-        )
+        form = PostingForm(message="Concurrent test message: https://example.com/benchmark")
 
         start = perf_counter()
         response = await service.broadcast(form=form, correlation_id="bench-1")
@@ -201,9 +199,7 @@ class TestPostingServiceNegative:
             DummyAdapter(name="p3"),
         ]
         service = PostingServiceImpl(adapters=adapters)
-        form = PostingForm(
-            message="Check out our release: https://example.com/feature"
-        )
+        form = PostingForm(message="Check out our release: https://example.com/feature")
 
         response = await service.broadcast(form=form, correlation_id="req-part")
 
@@ -222,9 +218,7 @@ class TestPostingServiceNegative:
             DummyAdapter(name="p2", should_fail=True),
         ]
         service = PostingServiceImpl(adapters=adapters)
-        form = PostingForm(
-            message="Check out our release: https://example.com/feature"
-        )
+        form = PostingForm(message="Check out our release: https://example.com/feature")
 
         response = await service.broadcast(form=form, correlation_id="req-all-fail")
 
@@ -242,9 +236,7 @@ class TestPostingServiceNegative:
             DummyAdapter(name="slow_adapter", delay_seconds=0.5),
         ]
         service = PostingServiceImpl(adapters=adapters, adapter_timeout_seconds=0.05)
-        form = PostingForm(
-            message="Timeout resilience test: https://example.com/timeout"
-        )
+        form = PostingForm(message="Timeout resilience test: https://example.com/timeout")
 
         response = await service.broadcast(form=form, correlation_id="req-timeout")
 
@@ -268,9 +260,7 @@ class TestPostingServiceNegative:
             ),
         ]
         service = PostingServiceImpl(adapters=adapters)
-        form = PostingForm(
-            message="Crash resilience test: https://example.com/crash"
-        )
+        form = PostingForm(message="Crash resilience test: https://example.com/crash")
 
         response = await service.broadcast(form=form, correlation_id="req-crash")
 
@@ -279,9 +269,7 @@ class TestPostingServiceNegative:
         assert response.successful_posts == 1
         assert response.failed_posts == 1
 
-        crashed_result = next(
-            r for r in response.results if r.platform == "crashing_adapter"
-        )
+        crashed_result = next(r for r in response.results if r.platform == "crashing_adapter")
         assert crashed_result.status == PlatformConstants.STATUS_FAILED
         assert "Internal platform communication error" in (crashed_result.error or "")
 
@@ -293,9 +281,7 @@ class TestPostingServiceEdgeCases:
     async def test_broadcast_zero_adapters(self) -> None:
         """Verifies service with zero adapters returns failed status with POST_NO_PLATFORMS."""
         service = PostingServiceImpl(adapters=[])
-        form = PostingForm(
-            message="Zero adapters test: https://example.com/zero"
-        )
+        form = PostingForm(message="Zero adapters test: https://example.com/zero")
 
         response = await service.broadcast(form=form, correlation_id="req-zero")
 
@@ -315,9 +301,7 @@ class TestPostingServiceEdgeCases:
             DummyAdapter(name="p2", configured=False),
         ]
         service = PostingServiceImpl(adapters=adapters)
-        form = PostingForm(
-            message="Unconfigured test: https://example.com/unconfigured"
-        )
+        form = PostingForm(message="Unconfigured test: https://example.com/unconfigured")
 
         response = await service.broadcast(form=form, correlation_id="req-unconf")
 
@@ -336,9 +320,7 @@ class TestPostingServiceEdgeCases:
             DummyAdapter(name="p2", configured=False),
         ]
         service = PostingServiceImpl(adapters=adapters)
-        form = PostingForm(
-            message="Mix test: https://example.com/mix"
-        )
+        form = PostingForm(message="Mix test: https://example.com/mix")
 
         response = await service.broadcast(form=form, correlation_id="req-mix")
 

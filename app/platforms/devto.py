@@ -154,9 +154,7 @@ class DevToAdapter(BasePlatformAdapter):
             )
 
         headers = {
-            PlatformConstants.HEADER_DEVTO_API_KEY: (
-                self.settings.devto_api_key or ""
-            ).strip(),
+            PlatformConstants.HEADER_DEVTO_API_KEY: (self.settings.devto_api_key or "").strip(),
             "Content-Type": "application/json",
         }
         payload = self._build_payload(message, cta_url)
@@ -197,9 +195,7 @@ class DevToAdapter(BasePlatformAdapter):
             elif response.status_code == 429:
                 error = "Rate limit exceeded on Dev.to API."
             else:
-                error = (
-                    f"Dev.to rejected publication request with HTTP {response.status_code}."
-                )
+                error = f"Dev.to rejected publication request with HTTP {response.status_code}."
 
             return self._create_failure_result(error=error, latency_ms=latency_ms)
 

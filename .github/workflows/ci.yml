@@ -1,0 +1,59 @@
+name: CI/CD Pipeline - Quality & Security Gates
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-test:
+    name: Validate, Scan & Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff black mypy bandit pytest pytest-asyncio pytest-cov
+
+      - name: Gate 1 - Code Formatting & Linting (Ruff & Black)
+        run: |
+          ruff check app/ tests/
+          black --check --line-length 100 app/ tests/
+
+      - name: Gate 2 - Strict Static Type Analysis (Mypy)
+        run: |
+          mypy app/ --strict
+
+      - name: Gate 3 - Security Vulnerability Scan (Bandit SAST)
+        run: |
+          bandit -r app/ -ll -s B104
+
+      - name: Gate 4 - Automated Test Execution & Coverage (>= 90%)
+        run: |
+          pytest tests/ -v --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=90
+
+      - name: Gate 5 - Verify Docker Build
+        run: |
+          docker build -t automated-posting:test .

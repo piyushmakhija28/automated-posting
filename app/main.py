@@ -259,28 +259,55 @@ def create_app() -> FastAPI:
             first_msg = invalid_params[0]["reason"] if invalid_params else "Validation failed."
             first_type = str(exc.errors()[0].get("type", "")) if exc.errors() else ""
 
-            if "200" in first_msg or "budget" in first_msg.lower() or "too long" in first_msg.lower():
+            if (
+                "200" in first_msg
+                or "budget" in first_msg.lower()
+                or "too long" in first_msg.lower()
+            ):
                 code = ErrorCodeConstants.ERR_CHAR_LIMIT_EXCEEDED
                 detail = first_msg
-            elif "found 0" in first_msg or "0 URLs" in first_msg or ("CTA URL" in first_msg and "required" in first_msg.lower()):
+            elif (
+                "found 0" in first_msg
+                or "0 URLs" in first_msg
+                or ("CTA URL" in first_msg and "required" in first_msg.lower())
+            ):
                 code = ErrorCodeConstants.ERR_MISSING_CTA_URL
                 detail = first_msg
-            elif "multiple" in first_msg.lower() or ("found" in first_msg.lower() and "urls" in first_msg.lower()):
+            elif "multiple" in first_msg.lower() or (
+                "found" in first_msg.lower() and "urls" in first_msg.lower()
+            ):
                 code = ErrorCodeConstants.ERR_MULTIPLE_CTA_URLS
                 detail = first_msg
             elif "scheme" in first_msg.lower() or "protocol" in first_msg.lower():
                 code = ErrorCodeConstants.ERR_INVALID_URL_SCHEME
                 detail = first_msg
-            elif "empty" in first_msg.lower() or "whitespace" in first_msg.lower() or "blank" in first_msg.lower():
+            elif (
+                "empty" in first_msg.lower()
+                or "whitespace" in first_msg.lower()
+                or "blank" in first_msg.lower()
+            ):
                 code = ErrorCodeConstants.ERR_EMPTY_MESSAGE
                 detail = first_msg
             elif "missing" in first_type or "field required" in first_msg.lower():
                 code = ErrorCodeConstants.ERR_MISSING_FIELD
-                detail = f"Field '{invalid_params[0]['name']}' is required in request body." if invalid_params else first_msg
-            elif "bidirectional" in first_msg.lower() or "trojan" in first_msg.lower() or "control" in first_msg.lower():
+                detail = (
+                    f"Field '{invalid_params[0]['name']}' is required in request body."
+                    if invalid_params
+                    else first_msg
+                )
+            elif (
+                "bidirectional" in first_msg.lower()
+                or "trojan" in first_msg.lower()
+                or "control" in first_msg.lower()
+            ):
                 code = ErrorCodeConstants.ERR_MALICIOUS_CONTROL_CHARS
                 detail = first_msg
-            elif "ssrf" in first_msg.lower() or "private" in first_msg.lower() or "loopback" in first_msg.lower() or "reserved" in first_msg.lower():
+            elif (
+                "ssrf" in first_msg.lower()
+                or "private" in first_msg.lower()
+                or "loopback" in first_msg.lower()
+                or "reserved" in first_msg.lower()
+            ):
                 code = ErrorCodeConstants.ERR_SSRF_PROHIBITED
                 detail = first_msg
             elif "port" in first_msg.lower():
@@ -317,9 +344,7 @@ def create_app() -> FastAPI:
         )
 
     @app.exception_handler(StarletteHTTPException)
-    async def http_exception_handler(
-        request: Request, exc: StarletteHTTPException
-    ) -> JSONResponse:
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         """Translates standard HTTP errors (such as 404 and 405) into RFC 7807 responses.
 
         Args:

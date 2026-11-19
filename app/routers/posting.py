@@ -38,7 +38,9 @@ async def broadcast_post(
     form: PostingForm,
     response: Response,
     service: Annotated[PostingService, Depends(get_posting_service)],
-    x_correlation_id: Annotated[str | None, Header(alias=ApiConstants.HEADER_CORRELATION_ID)] = None,
+    x_correlation_id: Annotated[
+        str | None, Header(alias=ApiConstants.HEADER_CORRELATION_ID)
+    ] = None,
     x_request_id: Annotated[str | None, Header(alias=ApiConstants.HEADER_REQUEST_ID)] = None,
 ) -> PostingResponseDto:
     """Handles HTTP POST /posting request, invokes service orchestrator, and populates headers.

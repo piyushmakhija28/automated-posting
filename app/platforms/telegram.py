@@ -81,9 +81,7 @@ class TelegramAdapter(BasePlatformAdapter):
             "disable_web_page_preview": False,
         }
 
-    def _resolve_public_url(
-        self, chat: dict[str, Any], message_id: str | int
-    ) -> str | None:
+    def _resolve_public_url(self, chat: dict[str, Any], message_id: str | int) -> str | None:
         """Synthesizes the canonical public t.me post URL if the channel is public.
 
         Args:
@@ -186,16 +184,10 @@ class TelegramAdapter(BasePlatformAdapter):
 
                 if body.get("ok") is True:
                     result_data = (
-                        body.get("result", {})
-                        if isinstance(body.get("result"), dict)
-                        else {}
+                        body.get("result", {}) if isinstance(body.get("result"), dict) else {}
                     )
                     raw_msg_id = result_data.get("message_id")
-                    post_id = (
-                        str(raw_msg_id).strip()
-                        if raw_msg_id is not None
-                        else "unknown"
-                    )
+                    post_id = str(raw_msg_id).strip() if raw_msg_id is not None else "unknown"
                     chat_meta = (
                         result_data.get("chat", {})
                         if isinstance(result_data.get("chat"), dict)

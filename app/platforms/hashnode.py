@@ -125,9 +125,7 @@ class HashnodeAdapter(BasePlatformAdapter):
             return "Unknown GraphQL error"
         return None
 
-    def _extract_post_details(
-        self, body: dict[str, Any]
-    ) -> tuple[str | None, str | None]:
+    def _extract_post_details(self, body: dict[str, Any]) -> tuple[str | None, str | None]:
         """Extracts article post ID and canonical URL from GraphQL data payload.
 
         Args:
@@ -205,9 +203,7 @@ class HashnodeAdapter(BasePlatformAdapter):
                 gql_error = self._extract_graphql_error(body)
                 if gql_error:
                     error = f"Hashnode GraphQL error: {gql_error}."
-                    return self._create_failure_result(
-                        error=error, latency_ms=latency_ms
-                    )
+                    return self._create_failure_result(error=error, latency_ms=latency_ms)
 
                 post_id, post_url = self._extract_post_details(body)
                 return self._create_success_result(
@@ -222,9 +218,7 @@ class HashnodeAdapter(BasePlatformAdapter):
             elif response.status_code == 429:
                 error = "Rate limit exceeded on Hashnode GraphQL API."
             else:
-                error = (
-                    f"Hashnode rejected publication request with HTTP {response.status_code}."
-                )
+                error = f"Hashnode rejected publication request with HTTP {response.status_code}."
 
             return self._create_failure_result(error=error, latency_ms=latency_ms)
 

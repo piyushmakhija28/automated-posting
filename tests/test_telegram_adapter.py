@@ -53,7 +53,7 @@ class TestTelegramAdapterPositive:
         assert payload["parse_mode"] == "HTML"
         assert payload["disable_web_page_preview"] is False
         assert "&lt;new&gt;" in payload["text"]
-        assert '&amp;' in payload["text"]
+        assert "&amp;" in payload["text"]
         assert '<a href="https://example.com/release">Read More</a>' in payload["text"]
 
     def test_resolve_public_url_from_chat_username(self) -> None:

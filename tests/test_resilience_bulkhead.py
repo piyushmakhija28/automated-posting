@@ -70,8 +70,7 @@ class TestBulkheadIsolation:
     async def test_slow_adapter_timeout_does_not_block_fast_adapters(self) -> None:
         """Verifies TC-EDG-07: Adapter exceeding SLA times out without delaying fast peers."""
         fast_adapters = [
-            MockBulkheadAdapter(name=f"fast_{i}", delay_seconds=0.01)
-            for i in range(4)
+            MockBulkheadAdapter(name=f"fast_{i}", delay_seconds=0.01) for i in range(4)
         ]
         slow_adapter = MockBulkheadAdapter(
             name="slow_platform",
@@ -221,8 +220,7 @@ class TestBulkheadIsolation:
     async def test_all_platforms_fail_returns_success_false(self) -> None:
         """Verifies TC-EDG-08: Complete platform failure returns success=False with itemized errors."""
         failing_adapters = [
-            MockBulkheadAdapter(name=f"platform_{i}", should_fail=True)
-            for i in range(5)
+            MockBulkheadAdapter(name=f"platform_{i}", should_fail=True) for i in range(5)
         ]
         service = PostingServiceImpl(adapters=failing_adapters)
         form = PostingForm(message="Complete failure test! https://techdeveloper.io")
@@ -259,10 +257,7 @@ class TestBulkheadIsolation:
     @pytest.mark.asyncio
     async def test_concurrency_fanout_timing_speedup(self) -> None:
         """Verifies concurrent execution total duration is approximately max(t_i) << sum(t_i)."""
-        adapters = [
-            MockBulkheadAdapter(name=f"platform_{i}", delay_seconds=0.06)
-            for i in range(5)
-        ]
+        adapters = [MockBulkheadAdapter(name=f"platform_{i}", delay_seconds=0.06) for i in range(5)]
         service = PostingServiceImpl(adapters=adapters)
         form = PostingForm(message="Concurrency speedup test! https://techdeveloper.io")
 
