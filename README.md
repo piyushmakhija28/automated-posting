@@ -269,13 +269,13 @@ PORT=4000
 ENVIRONMENT=development
 LOG_LEVEL=INFO
 
-# Platform API Credentials
+# Platform API Credentials (Supports both standard and alternative aliases)
 LINKEDIN_ACCESS_TOKEN=your_linkedin_oauth_token
-LINKEDIN_AUTHOR_URN=urn:li:person:your_person_id
+LINKEDIN_PERSON_URN=urn:li:person:your_person_id
 
 DEVTO_API_KEY=your_devto_api_key
 
-HASHNODE_ACCESS_TOKEN=your_hashnode_pat
+HASHNODE_API_KEY=your_hashnode_pat
 HASHNODE_PUBLICATION_ID=your_publication_id
 
 MASTODON_ACCESS_TOKEN=your_mastodon_bearer_token
