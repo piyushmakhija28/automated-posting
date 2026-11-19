@@ -22,9 +22,7 @@ class PostingService(ABC):
     """Abstract interface defining the business contract for multi-platform broadcasting."""
 
     @abstractmethod
-    async def broadcast(
-        self, form: PostingForm, correlation_id: str
-    ) -> PostingResponseDto:
+    async def broadcast(self, form: PostingForm, correlation_id: str) -> PostingResponseDto:
         """Broadcasts the validated form content across all configured platforms concurrently.
 
         Args:
@@ -116,9 +114,7 @@ class PostingServiceImpl(PostingService):
             )
         except Exception as exc:
             latency_ms = (perf_counter() - start_time) * 1000.0
-            self.logger.error(
-                f"Platform {adapter.name} raised uncaught exception: {exc}"
-            )
+            self.logger.error(f"Platform {adapter.name} raised uncaught exception: {exc}")
             date_str, time_str = adapter._get_current_timestamp()
             return PlatformResultDto(
                 platform=adapter.name,
@@ -132,9 +128,7 @@ class PostingServiceImpl(PostingService):
                 latency_ms=round(latency_ms, 2),
             )
 
-    async def broadcast(
-        self, form: PostingForm, correlation_id: str
-    ) -> PostingResponseDto:
+    async def broadcast(self, form: PostingForm, correlation_id: str) -> PostingResponseDto:
         """Executes concurrent broadcast across all platforms using asyncio.gather bulkhead.
 
         Args:
@@ -148,14 +142,9 @@ class PostingServiceImpl(PostingService):
         message = form.cleaned_message
         cta_url = form.extracted_url
 
-        tasks = [
-            self._safe_execute(adapter, message, cta_url)
-            for adapter in self.adapters
-        ]
+        tasks = [self._safe_execute(adapter, message, cta_url) for adapter in self.adapters]
 
-        results: list[PlatformResultDto] = await asyncio.gather(
-            *tasks, return_exceptions=False
-        )
+        results: list[PlatformResultDto] = await asyncio.gather(*tasks, return_exceptions=False)
 
         total_latency_ms = (perf_counter() - start_total) * 1000.0
         return self.helper.build_posting_response(

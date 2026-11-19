@@ -91,9 +91,7 @@ class TestHealthProbes:
             assert data["adapters"]["linkedin"] is False
             assert data["adapters"]["devto"] is False
 
-    def test_starlette_not_found_returns_404_problem_details(
-        self, client: TestClient
-    ) -> None:
+    def test_starlette_not_found_returns_404_problem_details(self, client: TestClient) -> None:
         """Verifies non-existent route returns HTTP 404 with RFC 7807 problem details."""
         response = client.get("/nonexistent-endpoint-route")
 

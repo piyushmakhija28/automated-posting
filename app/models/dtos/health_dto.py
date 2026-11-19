@@ -37,7 +37,9 @@ class AdapterStatusDto(BaseModel):
     devto: bool = Field(default=False, description="Dev.to API key configuration status.")
     hashnode: bool = Field(default=False, description="Hashnode credentials configuration status.")
     mastodon: bool = Field(default=False, description="Mastodon instance configuration status.")
-    telegram: bool = Field(default=False, description="Telegram bot and channel configuration status.")
+    telegram: bool = Field(
+        default=False, description="Telegram bot and channel configuration status."
+    )
 
 
 class ReadinessResponseDto(BaseModel):

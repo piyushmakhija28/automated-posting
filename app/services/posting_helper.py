@@ -30,15 +30,9 @@ class PostingServiceHelper:
             PostingSummaryDto detailing total, successful, failed, and skipped tallies.
         """
         total = len(results)
-        successful = sum(
-            1 for r in results if r.status == PlatformConstants.STATUS_SUCCESS
-        )
-        failed = sum(
-            1 for r in results if r.status == PlatformConstants.STATUS_FAILED
-        )
-        skipped = sum(
-            1 for r in results if r.status == PlatformConstants.STATUS_SKIPPED
-        )
+        successful = sum(1 for r in results if r.status == PlatformConstants.STATUS_SUCCESS)
+        failed = sum(1 for r in results if r.status == PlatformConstants.STATUS_FAILED)
+        skipped = sum(1 for r in results if r.status == PlatformConstants.STATUS_SKIPPED)
         return PostingSummaryDto(
             total=total,
             successful=successful,
@@ -58,7 +52,9 @@ class PostingServiceHelper:
         Returns:
             Tuple of (status_literal, descriptive_lifecycle_message).
         """
-        if summary.total == 0 or (summary.successful == 0 and summary.failed == 0 and summary.skipped > 0):
+        if summary.total == 0 or (
+            summary.successful == 0 and summary.failed == 0 and summary.skipped > 0
+        ):
             return "failed", ServiceMessageConstants.POST_NO_PLATFORMS
         if summary.successful == summary.total:
             return "success", ServiceMessageConstants.POST_SUCCESS_ALL

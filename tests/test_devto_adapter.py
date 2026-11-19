@@ -37,7 +37,9 @@ class TestDevToAdapterPositive:
             "Check out our release https://example.com/blog and give feedback"
         )
         assert "http" not in title
-        assert "Check out our release  and give feedback" in title or "Check out our release" in title
+        assert (
+            "Check out our release  and give feedback" in title or "Check out our release" in title
+        )
 
     def test_title_synthesis_sentence_boundary_period(self) -> None:
         """Verifies title synthesis splits cleanly on first period sentence boundary."""
@@ -101,7 +103,10 @@ class TestDevToAdapterPositive:
         assert "article" in payload
         article = payload["article"]
         assert article["title"] == "Check out our new release!"
-        assert article["body_markdown"] == "Check out our new release!\n\n[Read More](https://example.com/release)"
+        assert (
+            article["body_markdown"]
+            == "Check out our new release!\n\n[Read More](https://example.com/release)"
+        )
         assert article["published"] is True
         assert article["tags"] == ["tech", "updates", "announcement"]
 

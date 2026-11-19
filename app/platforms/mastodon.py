@@ -55,8 +55,8 @@ class MastodonAdapter(BasePlatformAdapter):
             Fully-qualified statuses endpoint URL pointing to the configured instance.
         """
         raw_base = (
-            self.settings.mastodon_base_url or "https://mastodon.social"
-        ).strip().rstrip("/")
+            (self.settings.mastodon_base_url or "https://mastodon.social").strip().rstrip("/")
+        )
         if not raw_base:
             raw_base = "https://mastodon.social"
         return f"{raw_base}{PlatformConstants.PATH_MASTODON_STATUSES}"
@@ -166,13 +166,9 @@ class MastodonAdapter(BasePlatformAdapter):
             elif response.status_code == 422:
                 error = "Mastodon validation error: unprocessable status payload."
             elif response.status_code == 429:
-                error = (
-                    "Rate limit exceeded on Mastodon API (5-minute sliding window)."
-                )
+                error = "Rate limit exceeded on Mastodon API (5-minute sliding window)."
             else:
-                error = (
-                    f"Mastodon rejected publication request with HTTP {response.status_code}."
-                )
+                error = f"Mastodon rejected publication request with HTTP {response.status_code}."
 
             return self._create_failure_result(error=error, latency_ms=latency_ms)
 

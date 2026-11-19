@@ -164,7 +164,9 @@ class TestMastodonAdapterNegative:
             assert result.status == PlatformConstants.STATUS_FAILED
             assert result.post_id is None
             assert result.posted_url is None
-            assert result.error == "Authentication failed: invalid or expired Mastodon access token."
+            assert (
+                result.error == "Authentication failed: invalid or expired Mastodon access token."
+            )
 
     @pytest.mark.asyncio
     async def test_post_http_422_unprocessable_entity(self) -> None:
@@ -172,7 +174,9 @@ class TestMastodonAdapterNegative:
         settings = Settings(MASTODON_ACCESS_TOKEN="valid-token")
 
         async def mock_handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(status_code=422, json={"error": "Validation failed: Text is too long"})
+            return httpx.Response(
+                status_code=422, json={"error": "Validation failed: Text is too long"}
+            )
 
         transport = httpx.MockTransport(mock_handler)
         async with httpx.AsyncClient(transport=transport) as client:
