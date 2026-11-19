@@ -108,6 +108,9 @@ class PlatformConstants:
         "publishPost(input: $input) { post { id title url } } }"
     )
 
+    PATH_MASTODON_STATUSES: Final[str] = "/api/v1/statuses"
+    HEADER_IDEMPOTENCY_KEY: Final[str] = "Idempotency-Key"
+
 
 class ErrorCodeConstants:
     """Standardized machine-readable error codes matching openapi.yaml RFC 7807 specification."""
