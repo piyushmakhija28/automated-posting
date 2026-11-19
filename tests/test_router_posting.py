@@ -1,53 +1,29 @@
-"""Triad unit and integration test suite for FastAPI ingress routers, SRE probes, and RFC 7807 handlers."""
+"""Triad unit and integration test suite covering the POST /posting ingress endpoint."""
 
 import json
-from datetime import datetime
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
+from httpx import AsyncClient
 from starlette.requests import Request
 
-from app.core.config import Settings
 from app.core.constants import ApiConstants, ErrorCodeConstants
 from app.core.exceptions import InfrastructureException
-from app.main import build_adapter_registry, create_app, lifespan
 from app.models.dtos.platform_dto import PlatformResultDto
 from app.models.dtos.posting_dto import PostingResponseDto, TelemetryDto
-from app.routers.posting import get_posting_service
-from app.services.posting_service import PostingService
-
-
-@pytest.fixture
-def mock_service() -> AsyncMock:
-    """Provides a mocked PostingService instance for router isolation testing."""
-    return AsyncMock(spec=PostingService)
-
-
-@pytest.fixture
-def app_with_service(mock_service: AsyncMock):
-    """Provides a FastAPI test application with PostingService dependency override."""
-    test_app = create_app()
-    test_app.dependency_overrides[get_posting_service] = lambda: mock_service
-    yield test_app
-    test_app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def client(app_with_service) -> TestClient:
-    """Provides a synchronous TestClient bound to the application with mock service."""
-    return TestClient(app_with_service, raise_server_exceptions=False)
 
 
 class TestPostingRouterTriad:
     """Triad test suite covering POST /posting ingress endpoint."""
 
     def test_broadcast_success_all_platforms_200(
-        self, client: TestClient, mock_service: AsyncMock
+        self, client: TestClient, mock_posting_service: AsyncMock
     ) -> None:
-        """Verifies successful broadcast returns HTTP 200 with telemetry headers."""
+        """Verifies TC-POS-01: Standard broadcast returns HTTP 200 with telemetry headers."""
         mock_result = PostingResponseDto(
             success=True,
             status="success",
@@ -73,7 +49,7 @@ class TestPostingRouterTriad:
                 correlation_id="test-corr-id",
             ),
         )
-        mock_service.broadcast.return_value = mock_result
+        mock_posting_service.broadcast.return_value = mock_result
 
         payload = {
             "message": "Scale your velocity with high-throughput event-driven microservices! https://techdeveloper.io"
@@ -94,8 +70,37 @@ class TestPostingRouterTriad:
         assert ApiConstants.HEADER_TOTAL_LATENCY in response.headers
         assert "X-Process-Time" in response.headers
 
+    @pytest.mark.asyncio
+    async def test_broadcast_success_async_client_200(
+        self, async_client: AsyncClient, mock_posting_service: AsyncMock
+    ) -> None:
+        """Verifies asynchronous client non-blocking execution returns HTTP 200."""
+        mock_result = PostingResponseDto(
+            success=True,
+            status="success",
+            message="Broadcast completed successfully.",
+            total_platforms=5,
+            successful_posts=5,
+            failed_posts=0,
+            execution_time_seconds=0.85,
+            results=[],
+            telemetry=TelemetryDto(
+                total_latency_ms=850.0,
+                correlation_id="async-test-id",
+            ),
+        )
+        mock_posting_service.broadcast.return_value = mock_result
+
+        payload = {"message": "Non-blocking async HTTPX dispatch test! https://techdeveloper.io"}
+        response = await async_client.post(ApiConstants.ENDPOINT_POSTING, json=payload)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert ApiConstants.HEADER_TOTAL_LATENCY in response.headers
+
     def test_broadcast_partial_success_200(
-        self, client: TestClient, mock_service: AsyncMock
+        self, client: TestClient, mock_posting_service: AsyncMock
     ) -> None:
         """Verifies partial platform degradation returns HTTP 200 with partial_success status."""
         mock_result = PostingResponseDto(
@@ -108,7 +113,7 @@ class TestPostingRouterTriad:
             execution_time_seconds=1.15,
             results=[],
         )
-        mock_service.broadcast.return_value = mock_result
+        mock_posting_service.broadcast.return_value = mock_result
 
         payload = {
             "message": "Explore our modern cloud architectures today! https://techdeveloper.io"
@@ -120,7 +125,7 @@ class TestPostingRouterTriad:
         assert data["status"] == "partial_success"
 
     def test_client_request_id_forwarding(
-        self, client: TestClient, mock_service: AsyncMock
+        self, client: TestClient, mock_posting_service: AsyncMock
     ) -> None:
         """Verifies X-Request-ID header is propagated when X-Correlation-ID is omitted."""
         mock_result = PostingResponseDto(
@@ -137,7 +142,7 @@ class TestPostingRouterTriad:
                 correlation_id="req-uuid-999",
             ),
         )
-        mock_service.broadcast.return_value = mock_result
+        mock_posting_service.broadcast.return_value = mock_result
 
         payload = {"message": "Cloud microservices at scale! https://techdeveloper.io"}
         response = client.post(
@@ -152,7 +157,7 @@ class TestPostingRouterTriad:
         assert response.headers[ApiConstants.HEADER_TOTAL_LATENCY] == "950.0"
 
     def test_validation_error_over_200_chars_returns_422(self, client: TestClient) -> None:
-        """Verifies exceeding 200 characters triggers HTTP 422 with ERR_CHAR_LIMIT_EXCEEDED."""
+        """Verifies TC-NEG-01: Exceeding 200 characters triggers HTTP 422 with ERR_CHAR_LIMIT_EXCEEDED."""
         payload = {"message": "A" * 180 + " https://techdeveloper.io/very-long-path-that-exceeds"}
         response = client.post(ApiConstants.ENDPOINT_POSTING, json=payload)
 
@@ -165,7 +170,7 @@ class TestPostingRouterTriad:
         assert len(data["invalid_params"]) > 0
 
     def test_validation_error_zero_urls_returns_422(self, client: TestClient) -> None:
-        """Verifies omitting CTA link triggers HTTP 422 with ERR_MISSING_CTA_URL."""
+        """Verifies TC-NEG-02: Omitting CTA link triggers HTTP 422 with ERR_MISSING_CTA_URL."""
         payload = {"message": "Message without any call-to-action link."}
         response = client.post(ApiConstants.ENDPOINT_POSTING, json=payload)
 
@@ -175,7 +180,7 @@ class TestPostingRouterTriad:
         assert data["code"] == ErrorCodeConstants.ERR_MISSING_CTA_URL
 
     def test_validation_error_multiple_urls_returns_422(self, client: TestClient) -> None:
-        """Verifies multiple CTA links trigger HTTP 422 with ERR_MULTIPLE_CTA_URLS."""
+        """Verifies TC-NEG-03: Multiple CTA links trigger HTTP 422 with ERR_MULTIPLE_CTA_URLS."""
         payload = {"message": "Check https://techdeveloper.io and https://google.com"}
         response = client.post(ApiConstants.ENDPOINT_POSTING, json=payload)
 
@@ -185,7 +190,7 @@ class TestPostingRouterTriad:
         assert data["code"] == ErrorCodeConstants.ERR_MULTIPLE_CTA_URLS
 
     def test_validation_error_empty_message_returns_422(self, client: TestClient) -> None:
-        """Verifies whitespace-only message triggers HTTP 422 with ERR_EMPTY_MESSAGE."""
+        """Verifies TC-NEG-04: Whitespace-only message triggers HTTP 422 with ERR_EMPTY_MESSAGE."""
         payload = {"message": "   "}
         response = client.post(ApiConstants.ENDPOINT_POSTING, json=payload)
 
@@ -194,7 +199,7 @@ class TestPostingRouterTriad:
         assert data["code"] == ErrorCodeConstants.ERR_EMPTY_MESSAGE
 
     def test_validation_error_missing_field_returns_422(self, client: TestClient) -> None:
-        """Verifies missing message field triggers HTTP 422 with ERR_MISSING_FIELD."""
+        """Verifies TC-NEG-08: Missing message field triggers HTTP 422 with ERR_MISSING_FIELD."""
         payload: dict[str, Any] = {}
         response = client.post(ApiConstants.ENDPOINT_POSTING, json=payload)
 
@@ -203,7 +208,7 @@ class TestPostingRouterTriad:
         assert data["code"] == ErrorCodeConstants.ERR_MISSING_FIELD
 
     def test_validation_error_ssrf_returns_422(self, client: TestClient) -> None:
-        """Verifies loopback URL triggers HTTP 422 with ERR_SSRF_PROHIBITED."""
+        """Verifies TC-NEG-10: Loopback URL triggers HTTP 422 with ERR_SSRF_PROHIBITED."""
         payload = {"message": "Test SSRF https://127.0.0.1/admin"}
         response = client.post(ApiConstants.ENDPOINT_POSTING, json=payload)
 
@@ -214,7 +219,7 @@ class TestPostingRouterTriad:
     def test_validation_error_trojan_source_control_chars_returns_422(
         self, client: TestClient
     ) -> None:
-        """Verifies bidirectional override characters trigger HTTP 422 with ERR_MALICIOUS_CONTROL_CHARS."""
+        """Verifies TC-NEG-09: Bidi override characters trigger HTTP 422 with ERR_MALICIOUS_CONTROL_CHARS."""
         payload = {"message": "Test \u202E override https://techdeveloper.io"}
         response = client.post(ApiConstants.ENDPOINT_POSTING, json=payload)
 
@@ -223,7 +228,7 @@ class TestPostingRouterTriad:
         assert data["code"] == ErrorCodeConstants.ERR_MALICIOUS_CONTROL_CHARS
 
     def test_validation_error_prohibited_port_returns_422(self, client: TestClient) -> None:
-        """Verifies disallowed port triggers HTTP 422 with ERR_PROHIBITED_PORT."""
+        """Verifies TC-NEG-12: Disallowed port triggers HTTP 422 with ERR_PROHIBITED_PORT."""
         payload = {"message": "Test port https://example.com:22/ssh"}
         response = client.post(ApiConstants.ENDPOINT_POSTING, json=payload)
 
@@ -232,7 +237,7 @@ class TestPostingRouterTriad:
         assert data["code"] == ErrorCodeConstants.ERR_PROHIBITED_PORT
 
     def test_validation_error_invalid_scheme_returns_422(self, client: TestClient) -> None:
-        """Verifies unsupported protocol scheme triggers HTTP 422 with ERR_INVALID_URL_SCHEME."""
+        """Verifies TC-NEG-05: Unsupported protocol scheme triggers HTTP 422 with ERR_INVALID_URL_SCHEME."""
         payload = {"message": "Visit ftp://files.techdeveloper.io/doc"}
         response = client.post(ApiConstants.ENDPOINT_POSTING, json=payload)
 
@@ -241,7 +246,7 @@ class TestPostingRouterTriad:
         assert data["code"] == ErrorCodeConstants.ERR_INVALID_URL_SCHEME
 
     def test_malformed_json_body_returns_400(self, client: TestClient) -> None:
-        """Verifies malformed JSON payload returns HTTP 400 with ERR_MALFORMED_JSON."""
+        """Verifies TC-NEG-07: Malformed JSON payload returns HTTP 400 with ERR_MALFORMED_JSON."""
         raw_broken_json = '{"message": "broken json without closing quote'
         response = client.post(
             ApiConstants.ENDPOINT_POSTING,
@@ -256,10 +261,10 @@ class TestPostingRouterTriad:
         assert data["status"] == 400
 
     def test_application_exception_handled_as_rfc7807(
-        self, client: TestClient, mock_service: AsyncMock
+        self, client: TestClient, mock_posting_service: AsyncMock
     ) -> None:
-        """Verifies ApplicationException raised by service is formatted as RFC 7807 response."""
-        mock_service.broadcast.side_effect = InfrastructureException(
+        """Verifies TC-EDG-07: ApplicationException raised by service is formatted as RFC 7807 response."""
+        mock_posting_service.broadcast.side_effect = InfrastructureException(
             message="Gateway multi-platform timeout exceeded SLA.",
             http_status=504,
             error_code=ErrorCodeConstants.ERR_GATEWAY_TIMEOUT,
@@ -275,10 +280,10 @@ class TestPostingRouterTriad:
         assert data["status"] == 504
 
     def test_uncaught_runtime_exception_handled_as_500(
-        self, client: TestClient, mock_service: AsyncMock
+        self, client: TestClient, mock_posting_service: AsyncMock
     ) -> None:
         """Verifies uncaught runtime exceptions return HTTP 500 with ERR_INTERNAL_SERVER."""
-        mock_service.broadcast.side_effect = RuntimeError("Fatal memory corrupt simulation.")
+        mock_posting_service.broadcast.side_effect = RuntimeError("Fatal memory corrupt simulation.")
 
         payload = {"message": "Valid broadcast payload! https://techdeveloper.io"}
         response = client.post(ApiConstants.ENDPOINT_POSTING, json=payload)
@@ -288,148 +293,6 @@ class TestPostingRouterTriad:
         data = response.json()
         assert data["code"] == ErrorCodeConstants.ERR_INTERNAL_SERVER
         assert data["status"] == 500
-
-    def test_get_posting_service_default_raises_not_implemented(self) -> None:
-        """Verifies default get_posting_service dependency provider raises NotImplementedError."""
-        with pytest.raises(NotImplementedError, match="Dependency injection provider"):
-            get_posting_service()
-
-
-class TestHealthAndReadinessProbes:
-    """Triad test suite covering SRE health and readiness probes."""
-
-    def test_liveness_probe_returns_200_ok(self, client: TestClient) -> None:
-        """Verifies GET /health liveness probe returns HTTP 200 with ok status."""
-        response = client.get(ApiConstants.ENDPOINT_HEALTH)
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "ok"
-        assert data["version"] == ApiConstants.SERVICE_VERSION
-        assert "timestamp" in data
-        assert datetime.fromisoformat(data["timestamp"].replace("Z", "+00:00"))
-
-    def test_readiness_probe_returns_200_ready(self, client: TestClient) -> None:
-        """Verifies GET /ready readiness probe returns HTTP 200 with platform statuses."""
-        response = client.get(ApiConstants.ENDPOINT_READY)
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "ready"
-        assert data["version"] == ApiConstants.SERVICE_VERSION
-        assert isinstance(data["platforms_configured"], int)
-        assert isinstance(data["adapters"], dict)
-        assert "linkedin" in data["adapters"]
-        assert "devto" in data["adapters"]
-        assert "hashnode" in data["adapters"]
-        assert "mastodon" in data["adapters"]
-        assert "telegram" in data["adapters"]
-
-    def test_readiness_probe_with_all_credentials_configured(self) -> None:
-        """Verifies readiness probe reports 5 platforms configured when all credentials are set."""
-        mock_settings = Settings(
-            linkedin_access_token="tok",
-            linkedin_person_urn="urn:li:person:123",
-            devto_api_key="key",
-            hashnode_api_key="key",
-            hashnode_publication_id="pub-123",
-            mastodon_access_token="tok",
-            mastodon_base_url="https://mastodon.social",
-            telegram_bot_token="bot:tok",
-            telegram_channel_id="@chan",
-        )
-        with patch("app.routers.health.Settings", return_value=mock_settings):
-            app = create_app()
-            test_client = TestClient(app)
-            response = test_client.get(ApiConstants.ENDPOINT_READY)
-
-            assert response.status_code == 200
-            data = response.json()
-            assert data["platforms_configured"] == 5
-            assert data["adapters"]["linkedin"] is True
-            assert data["adapters"]["devto"] is True
-            assert data["adapters"]["hashnode"] is True
-            assert data["adapters"]["mastodon"] is True
-            assert data["adapters"]["telegram"] is True
-
-    def test_readiness_probe_with_no_credentials_configured(self) -> None:
-        """Verifies readiness probe reports 0 platforms configured when all credentials are empty."""
-        mock_settings = Settings(
-            linkedin_access_token=None,
-            linkedin_person_urn=None,
-            devto_api_key=None,
-            hashnode_api_key=None,
-            hashnode_publication_id=None,
-            mastodon_access_token=None,
-            mastodon_base_url=None,
-            telegram_bot_token=None,
-            telegram_channel_id=None,
-        )
-        with patch("app.routers.health.Settings", return_value=mock_settings):
-            app = create_app()
-            test_client = TestClient(app)
-            response = test_client.get(ApiConstants.ENDPOINT_READY)
-
-            assert response.status_code == 200
-            data = response.json()
-            assert data["platforms_configured"] == 0
-            assert data["adapters"]["linkedin"] is False
-            assert data["adapters"]["devto"] is False
-
-
-class TestApplicationLifecycleAndStarletteHandlers:
-    """Test suite covering application factory, lifespan, and Starlette HTTP handlers."""
-
-    def test_create_app_factory_metadata(self) -> None:
-        """Verifies create_app produces application with correct OpenAPI title and version."""
-        test_app = create_app()
-        assert test_app.title == "Automated Multi-Platform Posting Service API"
-        assert test_app.version == ApiConstants.SERVICE_VERSION
-
-    def test_starlette_not_found_returns_404_problem_details(
-        self, client: TestClient
-    ) -> None:
-        """Verifies non-existent route returns HTTP 404 with RFC 7807 problem details."""
-        response = client.get("/nonexistent-endpoint-route")
-
-        assert response.status_code == 404
-        assert response.headers["Content-Type"] == "application/problem+json"
-        data = response.json()
-        assert data["status"] == 404
-        assert data["code"] == "ERR_HTTP_404"
-
-    def test_starlette_method_not_allowed_returns_405_problem_details(
-        self, client: TestClient
-    ) -> None:
-        """Verifies unsupported HTTP method returns HTTP 405 with RFC 7807 problem details."""
-        response = client.get(ApiConstants.ENDPOINT_POSTING)
-
-        assert response.status_code == 405
-        assert response.headers["Content-Type"] == "application/problem+json"
-        data = response.json()
-        assert data["status"] == 405
-        assert data["code"] == "ERR_HTTP_405"
-
-    def test_build_adapter_registry_registers_all_five_adapters(self) -> None:
-        """Verifies build_adapter_registry registers all 5 concrete platform adapters."""
-        registry = build_adapter_registry()
-        registered = registry.registered_names()
-        assert "linkedin" in registered
-        assert "devto" in registered
-        assert "hashnode" in registered
-        assert "mastodon" in registered
-        assert "telegram" in registered
-
-    @pytest.mark.asyncio
-    async def test_lifespan_lifecycle_management(self) -> None:
-        """Verifies lifespan startup binds posting service and cleanup restores overrides."""
-        test_app = create_app()
-        async with lifespan(test_app):
-            assert get_posting_service in test_app.dependency_overrides
-            bound_service = test_app.dependency_overrides[get_posting_service]()
-            assert bound_service is not None
-
-        assert get_posting_service not in test_app.dependency_overrides
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -447,11 +310,10 @@ class TestApplicationLifecycleAndStarletteHandlers:
         ],
     )
     async def test_validation_exception_handler_error_code_mapping(
-        self, error_msg: str, expected_code: str
+        self, app_with_mock_service: FastAPI, error_msg: str, expected_code: str
     ) -> None:
         """Verifies validation_exception_handler maps Pydantic validation errors to exact RFC 7807 codes."""
-        test_app = create_app()
-        handler = test_app.exception_handlers[RequestValidationError]
+        handler = app_with_mock_service.exception_handlers[RequestValidationError]
         request = Request(scope={"type": "http", "method": "POST", "path": "/posting", "headers": []})
         exc = RequestValidationError([{"loc": ("body", "message"), "msg": error_msg, "type": "value_error"}])
         response = await handler(request, exc)
@@ -459,4 +321,3 @@ class TestApplicationLifecycleAndStarletteHandlers:
         assert response.headers["Content-Type"] == "application/problem+json"
         body = json.loads(response.body.decode("utf-8"))
         assert body["code"] == expected_code
-
