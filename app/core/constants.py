@@ -102,6 +102,12 @@ class PlatformConstants:
     URL_DEVTO_ARTICLES: Final[str] = "https://dev.to/api/articles"
     HEADER_DEVTO_API_KEY: Final[str] = "api-key"
 
+    URL_HASHNODE_GQL: Final[str] = "https://gql.hashnode.com"
+    MUTATION_HASHNODE_PUBLISH_POST: Final[str] = (
+        "mutation PublishPost($input: PublishPostInput!) { "
+        "publishPost(input: $input) { post { id title url } } }"
+    )
+
 
 class ErrorCodeConstants:
     """Standardized machine-readable error codes matching openapi.yaml RFC 7807 specification."""
