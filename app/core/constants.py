@@ -99,6 +99,9 @@ class PlatformConstants:
     HEADER_RESTLI_PROTOCOL_VERSION: Final[str] = "X-Restli-Protocol-Version"
     RESTLI_PROTOCOL_VERSION_VALUE: Final[str] = "2.0.0"
 
+    URL_DEVTO_ARTICLES: Final[str] = "https://dev.to/api/articles"
+    HEADER_DEVTO_API_KEY: Final[str] = "api-key"
+
 
 class ErrorCodeConstants:
     """Standardized machine-readable error codes matching openapi.yaml RFC 7807 specification."""
