@@ -1,6 +1,6 @@
 """Application settings and environment configuration."""
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.constants import ApiConstants, PlatformConstants
@@ -41,11 +41,17 @@ class Settings(BaseSettings):
 
     # Platform Credentials (Optional for graceful degradation)
     linkedin_access_token: str | None = Field(default=None, alias="LINKEDIN_ACCESS_TOKEN")
-    linkedin_person_urn: str | None = Field(default=None, alias="LINKEDIN_PERSON_URN")
+    linkedin_person_urn: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("LINKEDIN_PERSON_URN", "LINKEDIN_AUTHOR_URN"),
+    )
 
     devto_api_key: str | None = Field(default=None, alias="DEVTO_API_KEY")
 
-    hashnode_api_key: str | None = Field(default=None, alias="HASHNODE_API_KEY")
+    hashnode_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("HASHNODE_API_KEY", "HASHNODE_ACCESS_TOKEN"),
+    )
     hashnode_publication_id: str | None = Field(default=None, alias="HASHNODE_PUBLICATION_ID")
 
     mastodon_access_token: str | None = Field(default=None, alias="MASTODON_ACCESS_TOKEN")

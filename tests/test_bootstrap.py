@@ -3,6 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import Settings
 from app.core.constants import ApiConstants
 from app.main import build_adapter_registry, create_app, lifespan
 from app.routers.posting import get_posting_service
@@ -62,3 +63,19 @@ class TestBootstrapLifecycle:
             response = test_client.get(ApiConstants.ENDPOINT_HEALTH)
             assert response.status_code == 200
             assert response.json()["status"] == "ok"
+
+    def test_settings_supports_dual_environment_variable_aliases(self) -> None:
+        """Verifies Settings resolves both primary and fallback environment variable aliases."""
+        settings_author = Settings(
+            LINKEDIN_AUTHOR_URN="urn:li:person:auth123",
+            HASHNODE_ACCESS_TOKEN="pat_access_456",
+        )
+        assert settings_author.linkedin_person_urn == "urn:li:person:auth123"
+        assert settings_author.hashnode_api_key == "pat_access_456"
+
+        settings_standard = Settings(
+            LINKEDIN_PERSON_URN="urn:li:person:std789",
+            HASHNODE_API_KEY="pat_std_012",
+        )
+        assert settings_standard.linkedin_person_urn == "urn:li:person:std789"
+        assert settings_standard.hashnode_api_key == "pat_std_012"
