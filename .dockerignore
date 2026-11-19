@@ -1,7 +1,9 @@
 .git
 .gitignore
+.github
 .env
 *.env
+.env.*
 __pycache__
 *.pyc
 *.pyo
@@ -11,6 +13,7 @@ __pycache__
 htmlcov
 .ruff_cache
 .mypy_cache
+.benchmarks
 venv
 .venv
 tests
@@ -18,3 +21,4 @@ docs
 uml
 README.md
 SRS.md
+openapi.yaml
