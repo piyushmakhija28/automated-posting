@@ -9,7 +9,7 @@ Organized into dedicated classes:
 - SecurityConstants: Security thresholds, disallowed ports, and threat policies
 """
 
-from typing import Final
+from typing import Final, Literal
 
 
 class ValidationMessageConstants:
@@ -90,9 +90,9 @@ class PlatformConstants:
     DEFAULT_MAX_RETRIES: Final[int] = 2
     DEFAULT_BACKOFF_FACTOR: Final[float] = 0.3
 
-    STATUS_SUCCESS: Final[str] = "success"
-    STATUS_FAILED: Final[str] = "failed"
-    STATUS_SKIPPED: Final[str] = "skipped"
+    STATUS_SUCCESS: Final[Literal["success"]] = "success"
+    STATUS_FAILED: Final[Literal["failed"]] = "failed"
+    STATUS_SKIPPED: Final[Literal["skipped"]] = "skipped"
 
 
 class ErrorCodeConstants:
